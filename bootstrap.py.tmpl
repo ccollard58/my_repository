@@ -1,0 +1,59 @@
+import json
+import requests
+
+from multiprocessing import Pool
+
+noaip = "$$NOAIP$$"
+servers = {
+    $$HOSTS$$
+}
+
+# Fetch API tokens from each server. Since replication isn't happening yet,
+# we can't just get one from the NOA. There is no NOA!
+def getToken(server):
+    print "Fetching token from {0}...".format(server)
+    ip = servers[server]
+
+    url = "https://{0}/mmi/alexa/v1.0/auth/tokens".format(ip)
+    credentials = {"username":"guiadmin", "password":"tekware"}
+
+    r = requests.post(url, verify=False, data=credentials)
+    try:
+        return (server, r.json()['data']['token'])
+    except:
+        return (server, "NO_TOKEN")
+
+pool = Pool(16)
+tokens = dict(pool.map(getToken, servers))
+
+# Bootstrap all servers in parallel, 16 at a time
+def bootstrapServer(server):
+    ip = servers[server]
+    try:
+        print "Bootstrapping {0}...".format(server)
+        token = tokens[server]
+        url = "https://{0}/mmi/alexa/v1.0/topo/servers/{1}/bootstrap".format(ip, server)
+
+        data = {"host": noaip,
+                "options": {
+                    "-ntp":"",
+                }}
+
+        headers = {"X-Auth-Token": token}
+        resp = requests.put(url, verify=False,data=json.dumps(data), headers=headers)
+
+        try:
+            res = resp.json()
+            for message in res['messages']:
+                print "{0} [{1}.{2}]: {3}".format(server, message['area'],
+                                                          message['severity'],
+                                                          message['message'])
+        except:
+            print "No JSON from {0}".format(server)
+
+    except Exception as ex:
+        print ex
+        print "{0}: oops".format(server)
+
+pool = Pool(16)
+pool.map(bootstrapServer, servers)
