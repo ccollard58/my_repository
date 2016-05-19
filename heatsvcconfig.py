@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 import argparse
 import ipaddress
@@ -6,12 +6,16 @@ import json
 import os
 import requests
 import sys
+import time
 import yaml
 
 import sshtools
 
 from os import environ as env
 from xml.etree import ElementTree as ET
+
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 def dump(data):
     return yaml.safe_dump(data, default_flow_style=False)
@@ -25,12 +29,19 @@ from keystoneclient.auth.identity import v2
 from keystoneclient import session
 
 parser = argparse.ArgumentParser(description="Generates a configuration XML from a stack.")
-parser.add_argument("name", help="Name of the stack to configure.", type=str)
+parser.add_argument("name", help="Name of the stack to create.", type=str)
+parser.add_argument("imagename", help="Name of the image to use for the stack", type=str)
+parser.add_argument("yaml", help="YAML template for the stack.", type=str)
+parser.add_argument("keyname", help="Name of the keypair to use.", type=str)
 parser.add_argument("keyfile", help="Path to SSH key to use for authentication.", type=str)
 args = parser.parse_args()
 
 if not os.path.isfile(args.keyfile):
     print "SSH key '{0}' does not exist!".format(args.keyfile)
+    sys.exit(-1)
+
+if not os.path.isfile(args.yaml):
+    print "Template '{0}' does not exist!".format(args.keyfile)
     sys.exit(-1)
 
 keystone = ksclient.Client(auth_url=env['OS_AUTH_URL'],
@@ -57,14 +68,34 @@ neutron = neutronclient.Client('2.0', session=sess)
 servers      = {}
 nets         = {}
 
-# import code
-# code.InteractiveConsole(locals=globals()).interact()
-stack = heat.stacks.get(args.name)
-floatingip = None
+stack = None
+# Create the stack!
+with open(args.yaml, 'r') as yamlfile:
+    yamldata = yamlfile.read()
+    print "Creating stack '{0}'...".format(args.name)
+    stack = heat.stacks.create(stack_name=args.name, template=yamldata,
+            parameters={
+                "image": args.imagename,
+                "sshkeypair": args.keyname,
+            })
+
+stackid = stack['stack']['id']
+stack = heat.stacks.get(stack_id=stackid)
+
+while stack.to_dict()['stack_status'] == 'CREATE_IN_PROGRESS':
+    stack = heat.stacks.get(stack_id=stackid)
+    print "Stack is in state '{0}'".format(stack.to_dict()['stack_status'])
+    time.sleep(3)
+
+# stack = heat.stacks.get(args.name)
+noafloatingip = None
+soafloatingip = None
 
 for output in stack.outputs:
-    if output['output_key'] == 'floatingip':
-        floatingip = output['output_value']
+    if output['output_key'] == 'floatingip_noa':
+        noafloatingip = output['output_value']
+    if output['output_key'] == 'floatingip_soa1':
+        soafloatingip = output['output_value']
 
 resources = heat.resources.list(args.name)
 
@@ -119,6 +150,7 @@ for r in resources:
         net['subnet'] = neutron.show_subnet(net['subnets'][0])['subnet']
         nets[net['name']] = net
 
+mplist = []
 
 for servername in servers:
     server = servers[servername]
@@ -132,7 +164,10 @@ for servername in servers:
         ET.SubElement(out, 'haRolePref').text = server['awmeta']['haRolePref']
     ET.SubElement(out, 'location').text = 'OpenStack'
     ET.SubElement(out, 'role').text = server['awmeta']['role']
-    ET.SubElement(out, 'systemId').text = 'BREAKFAST'
+    if server['awmeta']['role'] == "roleMP":
+        mplist.append(servername)
+
+    ET.SubElement(out, 'systemId').text = 'OpenStack'
 
     ntp = ET.SubElement(out, 'ntpServers')
     ntp = ET.SubElement(ntp, 'ntpServer')
@@ -141,6 +176,9 @@ for servername in servers:
 
     for netname in server['addresses']:
         net = nets[netname]
+        if net['awmeta']['name'] == "XSI":
+            continue
+
         interfaces = server['addresses'][netname]
 
         devout = ET.SubElement(configtree, 'networkDevice')
@@ -179,7 +217,8 @@ for netname in nets:
     out = ET.SubElement(configtree, 'network')
 
     ET.SubElement(out, 'name').text = net['awmeta']['name']
-    ET.SubElement(out, 'neName').text = net['awmeta']['neName']
+    if net['awmeta']['neName'] != "GLOBAL":
+        ET.SubElement(out, 'neName').text = net['awmeta']['neName']
     ET.SubElement(out, 'vlanId').text = str(net['awmeta']['vlanId'])
 
     networkAddr = ipaddress.ip_network(net['subnet']['cidr'])
@@ -197,7 +236,10 @@ for netname in nets:
         ET.SubElement(out, 'isDefault').text = 'true'
         ET.SubElement(out, 'isRoutable').text = 'true'
 
-    ET.SubElement(out, 'locked').text = 'true'
+    if net['awmeta']['neName'] != "GLOBAL":
+        ET.SubElement(out, 'locked').text = 'true'
+    else:
+        ET.SubElement(out, 'locked').text = 'false'
 
 for s in ['Replication', 'OAM', 'Signaling']:
     svc = ET.SubElement(configtree, 'servicePath')
@@ -210,16 +252,37 @@ with open("{0}.xml".format(args.name), 'w') as f:
     f.write(xmlstring)
 
 hoststr = ""
+nodestr = ""
 
 for host in hostmap:
     hoststr += "'{0}': '{1}',\n".format(host, hostmap[host])
+for mp in mplist:
+    nodestr += "'{0}',\n".format(mp)
 
 with open('bootstrap.py.tmpl', 'r') as f:
     script = f.read().replace("$$NOAIP$$", noaip).replace("$$HOSTS$$", hoststr)
-
 with open("{0}.py".format(args.name), 'w') as f:
     f.write(script)
 
+with open('appinit.php.tmpl', 'r') as f:
+    script = f.read().replace("$$HOSTS$$", nodestr)
+with open("{0}_appinit.php".format(args.name), 'w') as f:
+    f.write(script)
+
+sys.stdout.write("Waiting for NOA...")
+sys.stdout.flush()
+
+r = requests.get("https://{0}/".format(noafloatingip), verify = False)
+while r.status_code != 200:
+    time.sleep(5)
+    sys.stdout.write('.')
+    sys.stdout.flush()
+
+    r = requests.get("https://{0}/".format(noafloatingip), verify = False)
+print "up!"
+
+sshtools.putFile(noafloatingip, "soapwait.php", "/tmp/soapwait.php", "admusr", args.keyfile)
+sshtools.runCommand(noafloatingip, "php /tmp/soapwait.php", "admusr", args.keyfile, printoutput=True)
 
 def getToken(server):
     print "Fetching token from {0}...".format(server)
@@ -230,11 +293,11 @@ def getToken(server):
     r = requests.post(url, verify=False, data=credentials)
     return r.json()['data']['token']
 
-url = "https://{0}/mmi/alexa/v1.0/bulk/configurator".format(floatingip)
+url = "https://{0}/mmi/alexa/v1.0/bulk/configurator".format(noafloatingip)
 print "Configuring NOA..."
 
 # Actually send the configurator request
-token = getToken(floatingip)
+token = getToken(noafloatingip)
 headers = {"X-Auth-Token": token}
 resp = requests.post(url, verify=False, data=xmlstring, headers=headers)
 
@@ -242,13 +305,77 @@ try:
     r = resp.json()
 
     for message in r['messages']:
-        print message
+        print message['message']
+        if 'details' in message:
+            for detail in message['details']:
+                print detail
+
 except Exception as ex:
     print ex
 
-sshtools.putFile(floatingip, "{0}.py".format(args.name), "/tmp/bootstrap.py", "admusr", args.keyfile)
+sshtools.putFile(noafloatingip, "{0}.py".format(args.name), "/tmp/bootstrap.py", "admusr", args.keyfile)
+sshtools.runCommand(noafloatingip, "/usr/bin/python /tmp/bootstrap.py", "admusr", args.keyfile, printoutput = True)
 
-os.unlink("{0}.xml".format(args.name))
-os.unlink("{0}.py".format(args.name))
+# os.unlink("{0}.xml".format(args.name))
+# os.unlink("{0}.py".format(args.name))
+# os.unlink("{0}_appinit.php".format(args.name))
 
-sshtools.runCommand(floatingip, "python /tmp/bootstrap.py", "admusr", args.keyfile, printoutput=True)
+# Wait for everything to come up
+url = "https://{0}/mmi/alexa/v1.0/topo/servers/status".format(noafloatingip)
+
+# Actually send the configurator request
+headers = {"X-Auth-Token": token}
+
+ret = {}
+
+for host in hostmap:
+    ret[host] = False
+
+elapsed = 0
+while (elapsed < 600):
+
+    try:
+        resp = requests.get(url, verify=False, headers=headers)
+        r = resp.json()
+        for server in r['data']:
+            hostname = server['hostname']
+            if (not ret[hostname]):
+                print "{0} is now up!".format(hostname)
+            ret[hostname] = True
+
+        done = all(up for up in ret.values())
+        if done:
+            break
+        else:
+            elapsed += 1
+    except Exception as ex:
+        print "{0}: {1}".format(url, ex)
+
+    time.sleep(1)
+
+min, sec = divmod(elapsed, 60)
+
+for server in ret:
+    if not ret[server]:
+        print "Server {0} never came up!".format(server)
+
+if done:
+    print "Finished in {0}:{1:02d}!".format(min,sec)
+else:
+    print "Timed out after {0}:{1:02d}!".format(min,sec)
+
+print "Enabling application!"
+
+for server in ret:
+    url = "https://{0}/mmi/alexa/v1.0/topo/servers/{1}/appl".format(noafloatingip, server)
+    if ret[server]:
+        print "Enabling application on {0}...".format(server)
+        data = json.dumps({'applState': 'Enabled'})
+        resp = requests.put(url, verify=False, headers=headers, data=data)
+        # print resp.json()
+    else:
+        print "Server {0} never came up... Not going to enable the application.".format(server)
+
+print "Performing UDR configuration..."
+sshtools.putFile(soafloatingip, "{0}_appinit.php".format(args.name), "/tmp/appinit.php", "admusr", args.keyfile)
+sshtools.runCommand(soafloatingip, "/usr/bin/php /tmp/appinit.php", "admusr", args.keyfile, printoutput = True)

@@ -21,6 +21,9 @@ def runCommand(host, command, user="admusr", key = None, printoutput = False):
             print line.strip()
         ret += line
 
+    for line in stderr:
+        print line.strip()
+
     return ret
 
 def progress(cur,total):

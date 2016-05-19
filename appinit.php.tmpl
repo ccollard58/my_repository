@@ -1,0 +1,20 @@
+<?php
+
+require_once "BootMini.php";
+system("source /etc/profile 2>&1 >/dev/null; while [ $(ha.mystate -Li | grep DbReplication | awk '{print $2}') != 'Active' ]; do sleep 2; done");
+
+$nodes = array(
+    $$HOSTS$$
+);
+
+foreach($nodes as $node) {
+    $data = array(
+        "nodeName" => $node,
+        "profileName" => "UDRVM:Database"
+    );
+    $p = new Diameter_MpProfileAssignment($data);
+    $p->insert();
+}
+
+Diameter_Application::lazyInitOfAppPerMpTable();
+system("source /etc/profile 2>&1 >/dev/null; iset -fadminState=\"Enabled\" DsrApplicationPerMp where 1=1");
