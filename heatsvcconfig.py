@@ -316,9 +316,8 @@ except Exception as ex:
 sshtools.putFile(noafloatingip, "{0}.py".format(args.name), "/tmp/bootstrap.py", "admusr", args.keyfile)
 sshtools.runCommand(noafloatingip, "/usr/bin/python /tmp/bootstrap.py", "admusr", args.keyfile, printoutput = True)
 
-# os.unlink("{0}.xml".format(args.name))
-# os.unlink("{0}.py".format(args.name))
-# os.unlink("{0}_appinit.php".format(args.name))
+os.unlink("{0}.xml".format(args.name))
+os.unlink("{0}.py".format(args.name))
 
 # Wait for everything to come up
 url = "https://{0}/mmi/alexa/v1.0/topo/servers/status".format(noafloatingip)
@@ -379,3 +378,5 @@ for server in ret:
 print "Performing UDR configuration..."
 sshtools.putFile(soafloatingip, "{0}_appinit.php".format(args.name), "/tmp/appinit.php", "admusr", args.keyfile)
 sshtools.runCommand(soafloatingip, "/usr/bin/php /tmp/appinit.php", "admusr", args.keyfile, printoutput = True)
+
+os.unlink("{0}_appinit.php".format(args.name))

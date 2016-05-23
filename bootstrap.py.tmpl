@@ -45,8 +45,6 @@ def getToken(server):
 
 pool = Pool(16)
 tokens = dict(pool.map(getToken, servers))
-print tokens
-# time.sleep(5)
 
 # Bootstrap all servers in parallel, 16 at a time
 def bootstrapServer(server):
