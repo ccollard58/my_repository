@@ -269,7 +269,7 @@ with open('appinit.php.tmpl', 'r') as f:
 with open("{0}_appinit.php".format(args.name), 'w') as f:
     f.write(script)
 
-sys.stdout.write("Waiting for NOA...")
+sys.stdout.write("Waiting for NOA MMI to become ready...")
 sys.stdout.flush()
 
 r = requests.get("https://{0}/".format(noafloatingip), verify = False)
@@ -294,7 +294,7 @@ def getToken(server):
     return r.json()['data']['token']
 
 url = "https://{0}/mmi/alexa/v1.0/bulk/configurator".format(noafloatingip)
-print "Configuring NOA..."
+print "Configuring NOA using the bulk configurator MMI..."
 
 # Actually send the configurator request
 token = getToken(noafloatingip)
@@ -380,3 +380,7 @@ sshtools.putFile(soafloatingip, "{0}_appinit.php".format(args.name), "/tmp/appin
 sshtools.runCommand(soafloatingip, "/usr/bin/php /tmp/appinit.php", "admusr", args.keyfile, printoutput = True)
 
 os.unlink("{0}_appinit.php".format(args.name))
+
+print "Complete!"
+print "NOA is accessible at https://{0}/".format(noafloatingip)
+print "SOA is accessible at https://{0}".format(soafloatingip)

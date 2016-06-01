@@ -7,7 +7,7 @@ $cmProc    = new services_COMCOL_CmProcMgr();
 
 $found = 0;
 
-print "Waiting for apwSoapServer...\n";
+print "Waiting for apwSoapServer to become ready on NOA...\n";
 
 while(!$found) {
     print ".";
