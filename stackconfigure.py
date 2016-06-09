@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 
 import argparse
 import ipaddress
@@ -28,21 +28,10 @@ import neutronclient.neutron.client as neutronclient
 from keystoneclient.auth.identity import v2
 from keystoneclient import session
 
-parser = argparse.ArgumentParser(description="Generates a configuration XML from a stack.")
-parser.add_argument("name", help="Name of the stack to create.", type=str)
-parser.add_argument("imagename", help="Name of the image to use for the stack", type=str)
-parser.add_argument("yaml", help="YAML template for the stack.", type=str)
-parser.add_argument("keyname", help="Name of the keypair to use.", type=str)
+parser = argparse.ArgumentParser(description="Configures a stack created using stackcreate.py")
+parser.add_argument("stackname", help="Name of the stack to configure.", type=str)
 parser.add_argument("keyfile", help="Path to SSH key to use for authentication.", type=str)
 args = parser.parse_args()
-
-if not os.path.isfile(args.keyfile):
-    print "SSH key '{0}' does not exist!".format(args.keyfile)
-    sys.exit(-1)
-
-if not os.path.isfile(args.yaml):
-    print "Template '{0}' does not exist!".format(args.keyfile)
-    sys.exit(-1)
 
 keystone = ksclient.Client(auth_url=env['OS_AUTH_URL'],
                            username=env['OS_USERNAME'],
@@ -58,7 +47,7 @@ auth = v2.Password(auth_url=env['OS_AUTH_URL'],
 sess  = session.Session(auth=auth)
 token = keystone.auth_token
 
-heaturl = "http://ccp1.us.oracle.com:8004/v1/{0}".format(env['OS_TENANT_ID'])
+heaturl = keystone.service_catalog.get_endpoints()['orchestration'][0]['publicURL']
 heat = heatclient.Client('1', endpoint=heaturl, token=token)
 nova = novaclient.Client('2.1', session=sess)
 neutron = neutronclient.Client('2.0', session=sess)
@@ -68,26 +57,14 @@ neutron = neutronclient.Client('2.0', session=sess)
 servers      = {}
 nets         = {}
 
-stack = None
-# Create the stack!
-with open(args.yaml, 'r') as yamlfile:
-    yamldata = yamlfile.read()
-    print "Creating stack '{0}'...".format(args.name)
-    stack = heat.stacks.create(stack_name=args.name, template=yamldata,
-            parameters={
-                "image": args.imagename,
-                "sshkeypair": args.keyname,
-            })
-
-stackid = stack['stack']['id']
-stack = heat.stacks.get(stack_id=stackid)
+stack = heat.stacks.get(args.stackname)
 
 while stack.to_dict()['stack_status'] == 'CREATE_IN_PROGRESS':
-    stack = heat.stacks.get(stack_id=stackid)
+    stack = heat.stacks.get(args.stackname)
     print "Stack is in state '{0}'".format(stack.to_dict()['stack_status'])
     time.sleep(3)
 
-# stack = heat.stacks.get(args.name)
+# stack = heat.stacks.get(stackname)
 noafloatingip = None
 soafloatingip = None
 
@@ -97,35 +74,26 @@ for output in stack.outputs:
     if output['output_key'] == 'floatingip_soa1':
         soafloatingip = output['output_value']
 
-resources = heat.resources.list(args.name)
+resources = heat.resources.list(args.stackname)
 
 configtree = ET.Element('configuration')
 
 hostmap = {}
-
-config = {
-    'configHostname': [],
-    'networkElement': [],
-    'network': [],
-    'servicePath': [],
-    'server': [],
-    'networkDevice': [],
-    'serverGroup': [],
-    'vip': [],
-}
 
 # print "Fetching resources..."
 vlanId = 2
 
 for r in resources:
     if r.resource_type == "OS::Nova::Server":
-        meta = heat.resources.metadata(args.name, r.resource_name)
+        meta = heat.resources.metadata(args.stackname, r.resource_name)
         server = nova.servers.get(r.physical_resource_id).to_dict()
         server['awmeta'] = meta
-        servers[server['name']] = server
+        if not meta['extra']:
+            servers[server['name']] = server
         if meta['noa']:
-            elem = ET.SubElement(configtree, 'configHostname')
-            ET.SubElement(elem, 'hostname').text = server['name']
+
+            # elem = ET.SubElement(configtree, 'configHostname')
+            # ET.SubElement(elem, 'hostname').text = server['name']
 
             for ne in meta['appworks']['networkelements']:
                 elem = ET.SubElement(configtree, 'networkElement')
@@ -140,7 +108,7 @@ for r in resources:
                 ET.SubElement(elem, 'numWanRepConn').text = str(sg['numWanRepConn'])
 
     elif r.resource_type == "OS::Neutron::Net":
-        meta = heat.resources.metadata(args.name, r.resource_name)
+        meta = heat.resources.metadata(args.stackname, r.resource_name)
         net = neutron.show_network(r.physical_resource_id)['network']
         net['awmeta'] = meta
         net['awmeta']['vlanId'] = vlanId
@@ -248,7 +216,7 @@ for s in ['Replication', 'OAM', 'Signaling']:
     ET.SubElement(svc, 'interSitePath').text = 'WAN'
 
 xmlstring = ET.tostring(configtree)
-with open("{0}.xml".format(args.name), 'w') as f:
+with open("{0}.xml".format(args.stackname), 'w') as f:
     f.write(xmlstring)
 
 hoststr = ""
@@ -261,12 +229,12 @@ for mp in mplist:
 
 with open('bootstrap.py.tmpl', 'r') as f:
     script = f.read().replace("$$NOAIP$$", noaip).replace("$$HOSTS$$", hoststr)
-with open("{0}.py".format(args.name), 'w') as f:
+with open("{0}.py".format(args.stackname), 'w') as f:
     f.write(script)
 
 with open('appinit.php.tmpl', 'r') as f:
     script = f.read().replace("$$HOSTS$$", nodestr)
-with open("{0}_appinit.php".format(args.name), 'w') as f:
+with open("{0}_appinit.php".format(args.stackname), 'w') as f:
     f.write(script)
 
 sys.stdout.write("Waiting for NOA MMI to become ready...")
@@ -313,11 +281,11 @@ try:
 except Exception as ex:
     print ex
 
-sshtools.putFile(noafloatingip, "{0}.py".format(args.name), "/tmp/bootstrap.py", "admusr", args.keyfile)
+sshtools.putFile(noafloatingip, "{0}.py".format(args.stackname), "/tmp/bootstrap.py", "admusr", args.keyfile)
 sshtools.runCommand(noafloatingip, "/usr/bin/python /tmp/bootstrap.py", "admusr", args.keyfile, printoutput = True)
 
-os.unlink("{0}.xml".format(args.name))
-os.unlink("{0}.py".format(args.name))
+os.unlink("{0}.xml".format(args.stackname))
+os.unlink("{0}.py".format(args.stackname))
 
 # Wait for everything to come up
 url = "https://{0}/mmi/alexa/v1.0/topo/servers/status".format(noafloatingip)
@@ -371,15 +339,15 @@ for server in ret:
         print "Enabling application on {0}...".format(server)
         data = json.dumps({'applState': 'Enabled'})
         resp = requests.put(url, verify=False, headers=headers, data=data)
-        # print resp.json()
     else:
         print "Server {0} never came up... Not going to enable the application.".format(server)
 
+# TODO: generate and run this for more than one SO Network Element.
 print "Performing UDR configuration..."
-sshtools.putFile(soafloatingip, "{0}_appinit.php".format(args.name), "/tmp/appinit.php", "admusr", args.keyfile)
+sshtools.putFile(soafloatingip, "{0}_appinit.php".format(args.stackname), "/tmp/appinit.php", "admusr", args.keyfile)
 sshtools.runCommand(soafloatingip, "/usr/bin/php /tmp/appinit.php", "admusr", args.keyfile, printoutput = True)
 
-os.unlink("{0}_appinit.php".format(args.name))
+os.unlink("{0}_appinit.php".format(args.stackname))
 
 print "Complete!"
 print "NOA is accessible at https://{0}/".format(noafloatingip)
