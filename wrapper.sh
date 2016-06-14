@@ -2,7 +2,7 @@
 
 set -eu
 
-IMAGE="commscloud_stacktools"
+IMAGE="leo_stacktools"
 
 if [[ $# != 2 ]]; then
     echo "Usage: wrapper.sh OPENRC_PATH SSHKEY_PATH"

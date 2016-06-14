@@ -2,8 +2,8 @@ FROM python:2.7.11
 
 MAINTAINER jason.p.stone@oracle.com
 
-COPY commscloud_heatgen /tmp/package/commscloud_heatgen
-COPY commscloud_stacktools /tmp/package/commscloud_stacktools
+COPY leo_heatgen /tmp/package/leo_heatgen
+COPY leo_stacktools /tmp/package/leo_stacktools
 COPY setup.py /tmp/package/setup.py
 
 ENV http_proxy http://adc-proxy.oracle.com:80

@@ -20,10 +20,10 @@ from keystoneclient.auth.identity import v2
 from keystoneclient import session
 
 def create():
-    parser = argparse.ArgumentParser(description="Creates a stack from a Heat template")
+    parser = argparse.ArgumentParser(description="Creates a stack from a HOT template")
     parser.add_argument("name", help="Name of the stack to create.", type=str)
     parser.add_argument("imagename", help="Name of the image to use for the stack", type=str)
-    parser.add_argument("yaml", help="YAML template for the stack.", type=str)
+    parser.add_argument("yaml", help="HOT template for the stack.", type=str)
     parser.add_argument("keyname", help="Name of the keypair to use.", type=str)
     args = parser.parse_args()
 

@@ -339,8 +339,8 @@ def genyaml(input):
     return dump(doc, default_flow_style=False)
 
 def generate():
-    parser = argparse.ArgumentParser(description="Generate a HOT template!")
-    parser.add_argument("input", help="Input YAML file", type=str)
+    parser = argparse.ArgumentParser(description="Generate a HOT template.")
+    parser.add_argument("input", help="Input YAML specification", type=str)
     args = parser.parse_args()
 
     inputdata = yaml.load(open(args.input).read())
