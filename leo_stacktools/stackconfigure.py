@@ -29,6 +29,7 @@ def configure():
     parser = argparse.ArgumentParser(description="Configures a stack created using stackcreate.py")
     parser.add_argument("stackname", help="Name of the stack to configure.", type=str)
     parser.add_argument("keyfile", help="Path to SSH key to use for authentication.", type=str)
+    parser.add_argument("-g", "--generate_only", help="Generate XML only", action="store_true")
     args = parser.parse_args()
 
     keystone = ksclient.Client(auth_url=env['OS_AUTH_URL'],
@@ -142,18 +143,12 @@ def configure():
 
         for netname in server['addresses']:
             net = nets[netname]
-            if net['awmeta']['name'] == "XSI":
-                continue
 
             interfaces = server['addresses'][netname]
 
             devout = ET.SubElement(configtree, 'networkDevice')
 
-            if net['subnet']['gateway_ip']:
-                ET.SubElement(devout, 'port').text = 'eth0'
-            else:
-                ET.SubElement(devout, 'port').text = 'eth1'
-
+            ET.SubElement(devout, 'port').text = server['awmeta']['portmap'][net['awmeta']['name']]
             ET.SubElement(devout, 'type').text = 'Ethernet'
             ET.SubElement(devout, 'hostname').text = servername
 
@@ -214,6 +209,11 @@ def configure():
         ET.SubElement(svc, 'interSitePath').text = 'WAN'
 
     xmlstring = ET.tostring(configtree)
+
+    if args.generate_only:
+        print xmlstring
+        sys.exit(0)
+
     with open("/tmp/{0}.xml".format(args.stackname), 'w') as f:
         f.write(xmlstring)
 
@@ -348,6 +348,8 @@ def configure():
     sshtools.runCommand(soafloatingip, "/usr/bin/php /tmp/appinit.php", "admusr", args.keyfile, printoutput = True)
 
     os.unlink("/tmp/{0}_appinit.php".format(args.stackname))
+
+    sshtools.runCommand(noafloatingip, "source /etc/profile; sudo prod.stop -i; sudo prod.start -i", "admusr", args.keyfile, printoutput = True)
 
     print "Complete!"
     print "NOA is accessible at https://{0}/".format(noafloatingip)

@@ -56,6 +56,7 @@ def gennet(name, nename, cidr, routed=True):
 
     return {
         'name': resourceName,
+        'shortname': name,
         'net': net,
         'subnet': subnet,
         'interface': interface,
@@ -122,8 +123,15 @@ def genserver(name, nename, sgname, nets, role, flavor, primary = False, haRoleP
 
     props['networks'] = []
 
+    meta['portmap'] = {}
+    devicenumber = 0
+
     for net in nets:
         portname = "{0}_{1}_port".format(name, net['name'])
+
+        meta['portmap'][net['shortname']] = "eth{0}".format(devicenumber)
+        devicenumber += 1
+
         ports[portname] = {
             'type': 'OS::Neutron::Port',
             'properties': {
