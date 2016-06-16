@@ -2,7 +2,7 @@
 
 set -eu
 
-IMAGE="leo_stacktools"
+IMAGE="cgbudocker.us.oracle.com:7878/leo/stacktools:latest"
 
 if [[ $# != 2 ]]; then
     echo "Usage: wrapper.sh OPENRC_PATH SSHKEY_PATH"
@@ -12,4 +12,5 @@ fi
 OPENRC=$1
 SSHKEY=$2
 
-docker run --rm -it -v $OPENRC:/root/openrc -v $SSHKEY:/root/sshkey.pem $IMAGE bash -c "source /root/openrc && /bin/bash"
+docker pull $IMAGE
+docker run --name stacktools --hostname stacktools --rm -it -v $(readlink -e $OPENRC):/root/openrc -v $(readlink -e $SSHKEY):/root/sshkey.pem $IMAGE bash -c "source /root/openrc && /bin/bash"
