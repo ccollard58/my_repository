@@ -1,0 +1,23 @@
+#cloud-config
+
+bootcmd:
+    - echo proxy=http://adc-proxy.oracle.com:80 >> /etc/yum.conf
+
+write_files:
+    - content: |
+        127.0.0.1   localhost localhost4 localhost4.localdomain4 $stack-$name
+        ::1         localhost localhost6 localhost6.localdomain6 $stack-$name
+      path: /etc/hosts
+      owner: root:root
+      permissions: '0644'
+    - content: |
+        export http_proxy=http://adc-proxy.oracle.com:80
+        export https_proxy=http://adc-proxy.oracle.com:80
+        export HTTP_PROXY=http://adc-proxy.oracle.com:80
+        export HTTPS_PROXY=http://adc-proxy.oracle.com:80
+        export no_proxy=localhost,127.0.0.1,us.oracle.com,oracle.com,labs.nc.tekelec.com
+      path: /etc/profile.d/proxy.sh
+      owner: root:root
+      permissions: '0755'
+
+output: {all: '| tee -a /var/log/cloud-init-output.log'}

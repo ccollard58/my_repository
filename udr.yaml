@@ -1,0 +1,496 @@
+heat_template_version: '2015-04-30'
+outputs:
+  floatingip_noa:
+    description: The floating IP used to access 'noa'.
+    value:
+      get_attr:
+      - noa_NO_NE_WAN_port_fip
+      - floating_ip_address
+  floatingip_soa1:
+    description: The floating IP used to access 'soa1'.
+    value:
+      get_attr:
+      - soa1_SO_NE1_WAN_port_fip
+      - floating_ip_address
+parameter_groups:
+- label: VM Options
+  parameters:
+  - image
+  - flavor
+  - sshkeypair
+- label: Network Options
+  parameters:
+  - public_network
+  - NO_NE_WAN_cidr
+  - NO_NE_LAN_cidr
+  - GLOBAL_XSI_cidr
+  - SO_NE1_WAN_cidr
+  - SO_NE1_LAN_cidr
+parameters:
+  GLOBAL_XSI_cidr:
+    default: 192.168.99.0/24
+    label: GLOBAL XSI Network Address
+    type: string
+  NO_NE_LAN_cidr:
+    default: 172.30.0.0/24
+    label: NO_NE LAN Network Address
+    type: string
+  NO_NE_WAN_cidr:
+    default: 23.42.0.0/17
+    label: NO_NE WAN Network Address
+    type: string
+  SO_NE1_LAN_cidr:
+    default: 172.30.0.0/24
+    label: SO_NE1 LAN Network Address
+    type: string
+  SO_NE1_WAN_cidr:
+    default: 23.42.128.0/17
+    label: SO_NE1 WAN Network Address
+    type: string
+  flavor:
+    default: m1.udr
+    label: Flavor
+    type: string
+  image:
+    label: Image Name
+    type: string
+  public_network:
+    default: db3b2356-17c7-491e-9b7b-01fc1e946f8d
+    label: Public Network ID
+    type: string
+  sshkeypair:
+    default: sshkey
+    label: SSH keypair name
+    type: string
+resources:
+  GLOBAL_XSI:
+    metadata:
+      name: XSI
+      neName: GLOBAL
+    type: OS::Neutron::Net
+  GLOBAL_XSI_subnet:
+    properties:
+      cidr:
+        get_param: GLOBAL_XSI_cidr
+      gateway_ip: null
+      network_id:
+        get_resource: GLOBAL_XSI
+    type: OS::Neutron::Subnet
+  NO_NE_LAN:
+    metadata:
+      name: LAN
+      neName: NO_NE
+    type: OS::Neutron::Net
+  NO_NE_LAN_subnet:
+    properties:
+      cidr:
+        get_param: NO_NE_LAN_cidr
+      gateway_ip: null
+      network_id:
+        get_resource: NO_NE_LAN
+    type: OS::Neutron::Subnet
+  NO_NE_WAN:
+    metadata:
+      name: WAN
+      neName: NO_NE
+    type: OS::Neutron::Net
+  NO_NE_WAN_intf:
+    properties:
+      router_id:
+        get_resource: router
+      subnet:
+        get_resource: NO_NE_WAN_subnet
+    type: OS::Neutron::RouterInterface
+  NO_NE_WAN_subnet:
+    properties:
+      cidr:
+        get_param: NO_NE_WAN_cidr
+      dns_nameservers:
+      - 10.250.32.180
+      network_id:
+        get_resource: NO_NE_WAN
+    type: OS::Neutron::Subnet
+  SO_NE1_LAN:
+    metadata:
+      name: LAN
+      neName: SO_NE1
+    type: OS::Neutron::Net
+  SO_NE1_LAN_subnet:
+    properties:
+      cidr:
+        get_param: SO_NE1_LAN_cidr
+      gateway_ip: null
+      network_id:
+        get_resource: SO_NE1_LAN
+    type: OS::Neutron::Subnet
+  SO_NE1_WAN:
+    metadata:
+      name: WAN
+      neName: SO_NE1
+    type: OS::Neutron::Net
+  SO_NE1_WAN_intf:
+    properties:
+      router_id:
+        get_resource: router
+      subnet:
+        get_resource: SO_NE1_WAN_subnet
+    type: OS::Neutron::RouterInterface
+  SO_NE1_WAN_subnet:
+    properties:
+      cidr:
+        get_param: SO_NE1_WAN_cidr
+      dns_nameservers:
+      - 10.250.32.180
+      network_id:
+        get_resource: SO_NE1_WAN
+    type: OS::Neutron::Subnet
+  noa:
+    metadata:
+      appworks:
+        networkelements:
+        - name: NO_NE
+        - name: SO_NE1
+        servergroups:
+        - functionName: UDR-NO
+          level: A
+          name: NO_SG
+          numWanRepConn: 1
+          parentSgName: NONE
+        - functionName: NONE
+          level: B
+          name: SO_SG1
+          numWanRepConn: 1
+          parentSgName: NO_SG
+        - functionName: UDR-MP (multi-active cluster)
+          level: C
+          name: SO1MP_SG1
+          numWanRepConn: 1
+          parentSgName: SO_SG1
+      neName: NO_NE
+      noa: true
+      role: roleNOAMP
+      sgName: NO_SG
+    properties:
+      flavor:
+        get_param: flavor
+      image:
+        get_param: image
+      key_name:
+        get_param: sshkeypair
+      name:
+        str_replace:
+          params:
+            $name:
+              get_param: OS::stack_name
+          template: $name-noa
+      networks:
+      - port:
+          get_resource: noa_NO_NE_WAN_port
+      - port:
+          get_resource: noa_NO_NE_LAN_port
+      - port:
+          get_resource: noa_GLOBAL_XSI_port
+      user_data: '#!/bin/bash
+
+        cat <<EOF > /etc/sysconfig/network-scripts/ifcfg-eth2
+
+        BOOTPROTO=dhcp
+
+        TYPE=Ethernet
+
+        DEVICE=eth2
+
+        ONBOOT=yes
+
+        EOF
+
+        /sbin/ifup eth2
+
+        '
+    type: OS::Nova::Server
+  noa_GLOBAL_XSI_port:
+    properties:
+      network:
+        get_resource: GLOBAL_XSI
+    type: OS::Neutron::Port
+  noa_NO_NE_LAN_port:
+    properties:
+      network:
+        get_resource: NO_NE_LAN
+    type: OS::Neutron::Port
+  noa_NO_NE_WAN_port:
+    properties:
+      network:
+        get_resource: NO_NE_WAN
+    type: OS::Neutron::Port
+  noa_NO_NE_WAN_port_fip:
+    depends_on: NO_NE_WAN_intf
+    properties:
+      floating_network:
+        get_param: public_network
+      port_id:
+        get_resource: noa_NO_NE_WAN_port
+    type: OS::Neutron::FloatingIP
+  nob:
+    metadata:
+      haRolePref: SPARE
+      neName: NO_NE
+      noa: false
+      role: roleNOAMP
+      sgName: NO_SG
+    properties:
+      flavor:
+        get_param: flavor
+      image:
+        get_param: image
+      key_name:
+        get_param: sshkeypair
+      name:
+        str_replace:
+          params:
+            $name:
+              get_param: OS::stack_name
+          template: $name-nob
+      networks:
+      - port:
+          get_resource: nob_NO_NE_WAN_port
+      - port:
+          get_resource: nob_NO_NE_LAN_port
+      - port:
+          get_resource: nob_GLOBAL_XSI_port
+      user_data: '#!/bin/bash
+
+        cat <<EOF > /etc/sysconfig/network-scripts/ifcfg-eth2
+
+        BOOTPROTO=dhcp
+
+        TYPE=Ethernet
+
+        DEVICE=eth2
+
+        ONBOOT=yes
+
+        EOF
+
+        /sbin/ifup eth2
+
+        '
+    type: OS::Nova::Server
+  nob_GLOBAL_XSI_port:
+    properties:
+      network:
+        get_resource: GLOBAL_XSI
+    type: OS::Neutron::Port
+  nob_NO_NE_LAN_port:
+    properties:
+      network:
+        get_resource: NO_NE_LAN
+    type: OS::Neutron::Port
+  nob_NO_NE_WAN_port:
+    properties:
+      network:
+        get_resource: NO_NE_WAN
+    type: OS::Neutron::Port
+  router:
+    properties:
+      external_gateway_info:
+        network:
+          get_param: public_network
+    type: OS::Neutron::Router
+  so1mp1:
+    metadata:
+      neName: SO_NE1
+      noa: false
+      role: roleMP
+      sgName: SO1MP_SG1
+    properties:
+      flavor:
+        get_param: flavor
+      image:
+        get_param: image
+      key_name:
+        get_param: sshkeypair
+      name:
+        str_replace:
+          params:
+            $name:
+              get_param: OS::stack_name
+          template: $name-so1mp1
+      networks:
+      - port:
+          get_resource: so1mp1_SO_NE1_WAN_port
+      - port:
+          get_resource: so1mp1_SO_NE1_LAN_port
+      - port:
+          get_resource: so1mp1_GLOBAL_XSI_port
+      user_data: '#!/bin/bash
+
+        cat <<EOF > /etc/sysconfig/network-scripts/ifcfg-eth2
+
+        BOOTPROTO=dhcp
+
+        TYPE=Ethernet
+
+        DEVICE=eth2
+
+        ONBOOT=yes
+
+        EOF
+
+        /sbin/ifup eth2
+
+        '
+    type: OS::Nova::Server
+  so1mp1_GLOBAL_XSI_port:
+    properties:
+      network:
+        get_resource: GLOBAL_XSI
+    type: OS::Neutron::Port
+  so1mp1_SO_NE1_LAN_port:
+    properties:
+      network:
+        get_resource: SO_NE1_LAN
+    type: OS::Neutron::Port
+  so1mp1_SO_NE1_WAN_port:
+    properties:
+      network:
+        get_resource: SO_NE1_WAN
+    type: OS::Neutron::Port
+  so1mp2:
+    metadata:
+      neName: SO_NE1
+      noa: false
+      role: roleMP
+      sgName: SO1MP_SG1
+    properties:
+      flavor:
+        get_param: flavor
+      image:
+        get_param: image
+      key_name:
+        get_param: sshkeypair
+      name:
+        str_replace:
+          params:
+            $name:
+              get_param: OS::stack_name
+          template: $name-so1mp2
+      networks:
+      - port:
+          get_resource: so1mp2_SO_NE1_WAN_port
+      - port:
+          get_resource: so1mp2_SO_NE1_LAN_port
+      - port:
+          get_resource: so1mp2_GLOBAL_XSI_port
+      user_data: '#!/bin/bash
+
+        cat <<EOF > /etc/sysconfig/network-scripts/ifcfg-eth2
+
+        BOOTPROTO=dhcp
+
+        TYPE=Ethernet
+
+        DEVICE=eth2
+
+        ONBOOT=yes
+
+        EOF
+
+        /sbin/ifup eth2
+
+        '
+    type: OS::Nova::Server
+  so1mp2_GLOBAL_XSI_port:
+    properties:
+      network:
+        get_resource: GLOBAL_XSI
+    type: OS::Neutron::Port
+  so1mp2_SO_NE1_LAN_port:
+    properties:
+      network:
+        get_resource: SO_NE1_LAN
+    type: OS::Neutron::Port
+  so1mp2_SO_NE1_WAN_port:
+    properties:
+      network:
+        get_resource: SO_NE1_WAN
+    type: OS::Neutron::Port
+  soa1:
+    metadata:
+      neName: SO_NE1
+      noa: false
+      role: roleSOAM
+      sgName: SO_SG1
+    properties:
+      flavor:
+        get_param: flavor
+      image:
+        get_param: image
+      key_name:
+        get_param: sshkeypair
+      name:
+        str_replace:
+          params:
+            $name:
+              get_param: OS::stack_name
+          template: $name-soa1
+      networks:
+      - port:
+          get_resource: soa1_SO_NE1_WAN_port
+      - port:
+          get_resource: soa1_SO_NE1_LAN_port
+    type: OS::Nova::Server
+  soa1_SO_NE1_LAN_port:
+    properties:
+      network:
+        get_resource: SO_NE1_LAN
+    type: OS::Neutron::Port
+  soa1_SO_NE1_WAN_port:
+    properties:
+      network:
+        get_resource: SO_NE1_WAN
+    type: OS::Neutron::Port
+  soa1_SO_NE1_WAN_port_fip:
+    depends_on: SO_NE1_WAN_intf
+    properties:
+      floating_network:
+        get_param: public_network
+      port_id:
+        get_resource: soa1_SO_NE1_WAN_port
+    type: OS::Neutron::FloatingIP
+  sob1:
+    metadata:
+      haRolePref: SPARE
+      neName: SO_NE1
+      noa: false
+      role: roleSOAM
+      sgName: SO_SG1
+    properties:
+      flavor:
+        get_param: flavor
+      image:
+        get_param: image
+      key_name:
+        get_param: sshkeypair
+      name:
+        str_replace:
+          params:
+            $name:
+              get_param: OS::stack_name
+          template: $name-sob1
+      networks:
+      - port:
+          get_resource: sob1_SO_NE1_WAN_port
+      - port:
+          get_resource: sob1_SO_NE1_LAN_port
+    type: OS::Nova::Server
+  sob1_SO_NE1_LAN_port:
+    properties:
+      network:
+        get_resource: SO_NE1_LAN
+    type: OS::Neutron::Port
+  sob1_SO_NE1_WAN_port:
+    properties:
+      network:
+        get_resource: SO_NE1_WAN
+    type: OS::Neutron::Port

@@ -1,0 +1,38 @@
+params:
+    noampfunction: UDR-NO
+    noampflavor: m1.udr
+    supernet: 192.168.23.0/24
+    networkelements:
+        - soamfunction: NONE
+          soamflavor: m1.udr
+          mpservergroups:
+            - function: UDR-MP (multi-active cluster)
+              mpflavor: m1.udr
+              mpcount: 2
+
+extras:
+    - name: seagull
+      image: MEATOS6.106.0
+      flavor: m1.large
+      user-data: |
+          #cloud-config
+
+          runcmd:
+              - ifup eth1
+
+          write_files:
+              - path: /etc/sysconfig/network-scripts/ifcfg-eth1
+                permissions: '0644'
+                owner: root:root
+                content: |
+                    DEVICE=eth1
+                    ONBOOT=yes
+                    TYPE=Ethernet
+                    BOOTPROTO=dhcp
+                    DEFROUTE=no
+                    PEERDNS=no
+
+          packages:
+              - seagull
+              - seafood
+              - flock
