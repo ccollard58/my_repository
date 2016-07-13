@@ -22,7 +22,16 @@ vmdkname="$(ls | grep -Po '.+(?=\.vmdk)').vmdk"
 sudo qemu-img convert -f vmdk -O qcow2 $vmdkname $2
 sudo modprobe -r nbd
 sudo modprobe nbd max_part=8
-sudo qemu-nbd --connect=/dev/nbd0 $2
+
+for nbd_device in /sys/class/block/nbd*; do
+    $size=`cat $nbd_device/size`
+    if [ "$size" -eq 0 ] ; then
+        $device_number = $(basename $x | grep -Po "[0-9]+$")
+        sudo qemu-nbd --connect=/dev/nbd$device_number $2
+        break
+    fi
+
+done
 
 TEMP = $(mktemp -d)
 
