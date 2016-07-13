@@ -26,11 +26,10 @@ sudo modprobe nbd max_part=8
 for nbd_device in /sys/class/block/nbd*; do
     $size=`cat $nbd_device/size`
     if [ "$size" -eq 0 ] ; then
-        $device_number = $(basename $x | grep -Po "[0-9]+$")
+        $device_number = $(basename $nbd_device | grep -Po "[0-9]+$")
         sudo qemu-nbd --connect=/dev/nbd$device_number $2
         break
     fi
-
 done
 
 TEMP = $(mktemp -d)
