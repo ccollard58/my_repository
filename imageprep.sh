@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -eu
 
@@ -50,4 +50,6 @@ sudo vgchange -an vgroot
 sudo qemu-nbd -d /dev/nbd$device_number
 sudo pvscan --cache
 
-glance --os-username --os-password image-create $2
+openstack image create --disk-format qcow2 --file $2 $2
+
+rm -f $2
