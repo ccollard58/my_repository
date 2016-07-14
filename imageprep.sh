@@ -47,7 +47,7 @@ sudo umount $TEMP
 sudo rm -r $TEMP
 
 sudo vgchange -an vgroot
-sudo qemu-nbd -d /dev/nbd0
+sudo qemu-nbd -d /dev/nbd$device_number
 sudo pvscan --cache
 
 glance --os-username --os-password image-create $2
