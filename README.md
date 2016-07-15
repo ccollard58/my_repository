@@ -1,3 +1,7 @@
+# Prerequisites
+- Check that your openrc file is correctly configured and sourced.
+- Ensure you have a key pair associated with your Openstack system.
+
 # HOT Template Generator
 ## heatgen
 Generates a HOT template from a YAML specification. There is a sample specification in the **samples** directory.
