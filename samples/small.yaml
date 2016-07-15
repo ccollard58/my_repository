@@ -1,13 +1,16 @@
 params:
     noampfunction: UDR-NO
     noampflavor: m1.udr
+    noampprofile: UDR VMware
     supernet: 192.168.23.0/24
     networkelements:
         - soamfunction: NONE
           soamflavor: m1.udr
+          soamprofile: UDR VMware
           mpservergroups:
             - function: UDR-MP (multi-active cluster)
               mpflavor: m1.udr
+              mpprofile: UDR VMware
               mpcount: 2
 
 extras:

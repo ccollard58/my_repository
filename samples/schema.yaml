@@ -13,6 +13,10 @@ properties:
                 type: string
                 description: Nova flavor for the NOAM&P pair
                 example: m1.small
+            noampprofile:
+                type: string
+                description: AppWorks hardware profile for the NOAM&P pair
+                example: TVOE Guest
             supernet:
                 type: string
                 description: Network to subnet to provide routed networks
@@ -31,6 +35,10 @@ properties:
                             type: string
                             description: Nova flavor for the SOAM pair in this Network Element
                             example: m1.small
+                        soamprofile:
+                            type: string
+                            description: AppWorks hardware profile for this SOAM pair
+                            example: TVOE Guest
                         mpservergroups:
                             type: array
                             description: MP Server Groups in this Network Element
@@ -45,6 +53,10 @@ properties:
                                         type: string
                                         description: Nova flavor for this MP Server Group
                                         example: m1.small
+                                    mpprofile:
+                                        type: string
+                                        description: AppWorks hardware profile for this MP Server Group
+                                        example: TVOE Guest
                                     mpcount:
                                         type: integer
                                         description: The number of MPs in this Server Group

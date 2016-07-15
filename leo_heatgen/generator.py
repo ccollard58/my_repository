@@ -63,8 +63,9 @@ def gennet(name, nename, cidr, routed=True):
         'params': param
     }
 
-def genserver(name, nename, sgname, nets, role, flavor, primary = False, haRolePref = None,
-              extra = False, user_data = None, image = None):
+def genserver(name, nename, sgname, nets, role, flavor, hwprofile,
+              primary = False, haRolePref = None, extra = False,
+              user_data = None, image = None):
     instance = {}
     props = {}
     meta  = {}
@@ -111,6 +112,8 @@ def genserver(name, nename, sgname, nets, role, flavor, primary = False, haRoleP
     meta['sgName'] = sgname
     meta['role']   = role
     meta['extra'] = extra
+
+    meta['hwprofile'] = hwprofile
 
     if role == "roleNOAMP" and primary:
         meta['noa'] = True
@@ -258,16 +261,17 @@ def genyaml(input):
     nets += [wan,lan,xsi]
 
     noampflavor = input['params']['noampflavor']
+    noampprofile = input['params']['noampprofile']
 
-    noa = genserver("noa", "NO_NE", "NO_SG", [wan,lan,xsi], "roleNOAMP", noampflavor, primary = True)
+    noa = genserver("noa", "NO_NE", "NO_SG", [wan,lan,xsi], "roleNOAMP", noampflavor, noampprofile, primary = True)
     noa['instance']['metadata']['appworks'] = appworks
 
-    nob = genserver("nob", "NO_NE", "NO_SG", [wan,lan,xsi], "roleNOAMP", noampflavor, haRolePref = "SPARE")
+    nob = genserver("nob", "NO_NE", "NO_SG", [wan,lan,xsi], "roleNOAMP", noampflavor, noampprofile, haRolePref = "SPARE")
     servers += [noa, nob]
 
     # Add any extra servers
     for server in input['extras']:
-        s = genserver(server['name'],"NONE","NONE",[wan,xsi],"NONE",server['flavor'], extra = True, user_data = server['user-data'], image = server['image'])
+        s = genserver(server['name'],"NONE","NONE",[wan,xsi],"NONE",server['flavor'], None, extra = True, user_data = server['user-data'], image = server['image'])
         servers += [s]
     nenum = 1
 
@@ -287,8 +291,8 @@ def genyaml(input):
                                          'functionName': ne['soamfunction'],
                                          'numWanRepConn': 1})
 
-        soa = genserver("soa{0}".format(nenum), nename, sosgname, [wan,lan], "roleSOAM", ne['soamflavor'], primary = True)
-        sob = genserver("sob{0}".format(nenum), nename, sosgname, [wan,lan], "roleSOAM", ne['soamflavor'], haRolePref = "SPARE")
+        soa = genserver("soa{0}".format(nenum), nename, sosgname, [wan,lan], "roleSOAM", ne['soamflavor'], ne['soamprofile'], primary = True)
+        sob = genserver("sob{0}".format(nenum), nename, sosgname, [wan,lan], "roleSOAM", ne['soamflavor'], ne['soamprofile'], haRolePref = "SPARE")
         servers += [soa, sob]
 
         sgnum = 1
@@ -302,7 +306,7 @@ def genyaml(input):
                                              'numWanRepConn': 1})
 
             for rawmpnum in range(0, sg['mpcount']):
-                mp = genserver("so{0}mp{1}".format(nenum, mpnum), nename, mpsgname, [wan,lan,xsi], "roleMP", sg['mpflavor'])
+                mp = genserver("so{0}mp{1}".format(nenum, mpnum), nename, mpsgname, [wan,lan,xsi], "roleMP", sg['mpflavor'], sg['mpprofile'])
                 servers += [mp]
                 mpnum += 1
             sgnum += 1

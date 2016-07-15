@@ -1,0 +1,79 @@
+heat_template_version: '2015-04-30'
+parameters:
+  flavor:
+    default: m1.medium
+    label: Flavor
+    type: string
+  public_network:
+    default: db3b2356-17c7-491e-9b7b-01fc1e946f8d
+    label: Public Network ID
+    type: string
+  sshkeypair:
+    label: SSH keypair name
+    type: string
+resources:
+  devserver:
+    type: OS::Nova::Server
+    properties:
+      flavor:
+        get_param: flavor
+      image: OL7-Docker-Cloud
+      key_name:
+        get_param: sshkeypair
+      name:
+        str_replace:
+          params:
+            $name:
+              get_param: OS::stack_name
+          template: $name-vm
+      networks:
+          - network:
+              get_param: public_network
+      user_data_format: RAW
+      user_data: |
+        #cloud-config
+
+        write_files:
+          - path: /etc/resolv.conf
+            owner: root:root
+            permissions: '0644'
+            content: |
+              nameserver 10.209.76.197
+              nameserver 10.209.76.198
+              nameserver 192.135.82.132
+              search us.oracle.com oraclecorp.com
+          - path: /etc/systemd/system/docker.service.d/insecure-registry.conf
+            owner: root:root
+            permissions: '0644'
+            content: |
+              [Service]
+              Environment="INSECURE_REGISTRY= --insecure-registry=cgbudocker.us.oracle.com:7878 --insecure-registry=cgbudocker.us.oracle.com:6767 --insecure-registry=cgbudocker.us.oracle.com:5555"
+          - path: /root/.docker/config.json
+            owner: root:root
+            permissions: '0600'
+            content: |
+              {
+                "auths": {
+                  "cgbudocker.us.oracle.com:5555": {
+                     "auth": "YW5vbjphbm9u"
+                  },
+                  "cgbudocker.us.oracle.com:7878": {
+                     "auth": "ZGV2OmRldg=="
+                   },
+                   "cgbudocker.us.oracle.com:6767": {
+                     "auth": "dGhpcmRwYXJ0eTp0aGlyZHBhcnR5"
+                   }
+                 }
+              }
+          - path: /root/.gitconfig
+            owner: root:root
+            permissions: '0644'
+            content: |
+              [user]
+                      email =
+                      name =
+              [push]
+                      default = simple
+        runcmd:
+          - systemctl daemon-reload
+          - curl -k https://slc10vrt.us.oracle.com/leo/stacktools/raw/master/wrapper.sh > /root/wrapper.sh

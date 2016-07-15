@@ -126,7 +126,7 @@ def configure():
         ET.SubElement(out, 'hostname').text = servername
         ET.SubElement(out, 'networkElementName').text = server['awmeta']['neName']
         ET.SubElement(out, 'serverGroupName').text = server['awmeta']['sgName']
-        ET.SubElement(out, 'profileName').text = 'UDR VMware'
+        ET.SubElement(out, 'profileName').text = server['awmeta']['hwprofile']
         if 'haRolePref' in server['awmeta']:
             ET.SubElement(out, 'haRolePref').text = server['awmeta']['haRolePref']
         ET.SubElement(out, 'location').text = 'OpenStack'
