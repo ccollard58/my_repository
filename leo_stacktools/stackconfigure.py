@@ -32,16 +32,38 @@ def configure():
     parser.add_argument("-g", "--generate_only", help="Generate XML only", action="store_true")
     args = parser.parse_args()
 
-    keystone = ksclient.Client(auth_url=env['OS_AUTH_URL'],
-                               username=env['OS_USERNAME'],
-                               password=env['OS_PASSWORD'],
-                               tenant_name=env['OS_TENANT_NAME'],
-                               region_name=env['OS_REGION_NAME'])
+    osauthurl    = env.get('OS_AUTH_URL', '')
+    osusername   = env.get('OS_USERNAME', '')
+    ospassword   = env.get('OS_PASSWORD', '')
+    ostenantname = env.get('OS_TENANT_NAME', '')
+    osregionname = env.get('OS_REGION_NAME', '')
 
-    auth = v2.Password(auth_url=env['OS_AUTH_URL'],
-                       username=env['OS_USERNAME'],
-                       password=env['OS_PASSWORD'],
-                       tenant_name=env['OS_TENANT_NAME'])
+    if osauthurl == '':
+        print "OS_AUTH_URL must be set! Did you source an openrc file?"
+        sys.exit(-1)
+    if osusername == '':
+        print "OS_USERNAME must be set! Did you source an openrc file?"
+        sys.exit(-1)
+    if ospassword == '':
+        print "OS_PASSWORD must be set! Did you source an openrc file?"
+        sys.exit(-1)
+    if ostenantname == '':
+        print "OS_TENANT_NAME must be set! Did you source an openrc file?"
+        sys.exit(-1)
+    if osregionname == '':
+        print "OS_REGION_NAME must be set! Did you source an openrc file?"
+        sys.exit(-1)
+
+    keystone = ksclient.Client(auth_url=osauthurl,
+                               username=osusername,
+                               password=ospassword,
+                               tenant_name=ostenantname,
+                               region_name=osregionname)
+
+    auth = v2.Password(auth_url=osauthurl,
+                       username=osusername,
+                       password=ospassword,
+                       tenant_name=ostenantname)
 
     sess  = session.Session(auth=auth)
     token = keystone.auth_token
@@ -60,7 +82,11 @@ def configure():
 
     while stack.to_dict()['stack_status'] == 'CREATE_IN_PROGRESS':
         stack = heat.stacks.get(args.stackname)
-        print "Stack is in state '{0}'".format(stack.to_dict()['stack_status'])
+        status = stack.to_dict()['stack_status']
+        print "Stack is in state '{0}'".format(status)
+        if status == 'CREATE_FAILED':
+            print 'Stack creation failed!'
+            sys.exit(-1)
         time.sleep(3)
 
     # stack = heat.stacks.get(stackname)
