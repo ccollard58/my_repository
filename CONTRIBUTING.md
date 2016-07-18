@@ -24,5 +24,4 @@
 - Contact: jason.p.stone@oracle.com
 - [OpenStack Python API Bindings](http://docs.openstack.org/developer/language-bindings.html)
 - [Jira Page](https://myjira.us.oracle.com/projects/ENVAAS/summary)
-- [Confluence Page](https://cgbuconfluence.us.oracle.com/display/LAB/Available+Tools)
-- AppWorks MMI
+- [AppWorks MMI](https://cgbuconfluence.us.oracle.com/display/DEP/MMI+Documents)
