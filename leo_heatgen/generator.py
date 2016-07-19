@@ -168,15 +168,12 @@ def genserver(name, nename, sgname, nets, role, flavor, hwprofile,
 
 def genyaml(input):
     nes = 0
-    sgs = 0
-    mps = 0
 
     nofunction = input['params']['noampfunction']
 
     for ne in input['params']['networkelements']:
         nes += 1
 
-    # supernet = u"23.42.0.0/23"
     supernet = unicode(input['params']['supernet'])
     supernet = ipaddress.ip_interface(supernet)
     prefixdiff = int(math.ceil(math.log(nes + 1, 2)))
@@ -187,19 +184,6 @@ def genyaml(input):
     except Exception as e:
         message = "Not enough subnets in provided supernet: "
         message += str(e)
-        return message
-
-    if sgs * mps + 2 > subnets[0].num_addresses - 2:
-        message = "Not enough addresses in subnets: "
-        message += "Need {0}, got {1}!".format(sgs * mps + 2, subnets[0].num_addresses - 2)
-        return message
-
-    if nes > 64:
-        message = "Too many NEs! Max: 64 Requested: {0}".format(nes)
-        return message
-
-    if nes * sgs * mps + (2 * sgs) + 2> 1024:
-        message = "Too many servers! Max: 1024 Requested: {0}".format(nes * sgs * mps + (2 * sgs) + 2)
         return message
 
     params = {
@@ -215,7 +199,6 @@ def genyaml(input):
         'sshkeypair': {
             'type': 'string',
             'label': 'SSH keypair name',
-            'default': 'sshkey'
         }
     }
     paramGroups = [
@@ -245,7 +228,7 @@ def genyaml(input):
         }
     }
 
-# NO Network Element stuff. This will always be here.
+    # NO Network Element stuff. This will always be here.
 
     appworks['networkelements'].append({'name': 'NO_NE'})
     appworks['servergroups'].append({'name': 'NO_SG',

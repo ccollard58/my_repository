@@ -1,4 +1,8 @@
 #cloud-config
+system_info:
+  default_user:
+    name: admusr
+    lock_passwd: false
 
 bootcmd:
     - echo proxy=http://adc-proxy.oracle.com:80 >> /etc/yum.conf
@@ -19,5 +23,18 @@ write_files:
       path: /etc/profile.d/proxy.sh
       owner: root:root
       permissions: '0755'
+    - content: |
+          DEVICE=eth0
+          ONBOOT=yes
+          TYPE=Ethernet
+          BOOTPROTO=dhcp
+          DEFROUTE=no
+          PEERDNS=no
+      path: /etc/sysconfig/network-scripts/ifcfg-eth0
+      permissions: '0644'
+      owner: root:root
+
+runcmd:
+    - ifup eth0
 
 output: {all: '| tee -a /var/log/cloud-init-output.log'}
