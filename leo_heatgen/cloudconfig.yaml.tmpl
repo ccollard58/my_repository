@@ -1,8 +1,8 @@
 #cloud-config
 system_info:
-  default_user:
-    name: admusr
-    lock_passwd: false
+    default_user:
+        name: admusr
+        lock_passwd: false
 
 bootcmd:
     - echo proxy=http://adc-proxy.oracle.com:80 >> /etc/yum.conf
@@ -24,12 +24,12 @@ write_files:
       owner: root:root
       permissions: '0755'
     - content: |
-          DEVICE=eth0
-          ONBOOT=yes
-          TYPE=Ethernet
-          BOOTPROTO=dhcp
-          DEFROUTE=no
-          PEERDNS=no
+        DEVICE=eth0
+        ONBOOT=yes
+        TYPE=Ethernet
+        BOOTPROTO=dhcp
+        DEFROUTE=no
+        PEERDNS=no
       path: /etc/sysconfig/network-scripts/ifcfg-eth0
       permissions: '0644'
       owner: root:root
