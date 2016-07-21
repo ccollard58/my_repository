@@ -167,25 +167,6 @@ def genserver(name, nename, sgname, nets, role, flavor, hwprofile,
     }
 
 def genyaml(input):
-    nes = 0
-
-    nofunction = input['params']['noampfunction']
-
-    for ne in input['params']['networkelements']:
-        nes += 1
-
-    supernet = unicode(input['params']['supernet'])
-    supernet = ipaddress.ip_interface(supernet)
-    prefixdiff = int(math.ceil(math.log(nes + 1, 2)))
-
-    try:
-        subnets = list(supernet.network.subnets(prefixdiff))
-        subnets.reverse()
-    except Exception as e:
-        message = "Not enough subnets in provided supernet: "
-        message += str(e)
-        return message
-
     params = {
         'image': {
             'type': 'string',
@@ -215,9 +196,19 @@ def genyaml(input):
         'servergroups': []
     }
 
-    nets = []
+    nets = {}
+    yamlnets = []
     servers = []
     outputs = {}
+
+    nets['NO_NE'] = {}
+    nets['GLOBAL'] = {}
+
+    for net in input['params']['networks']:
+        nets['NO_NE'][net['name']] = gennet(net['name'], "NO_NE", net['cidr'], net['routed'])
+
+    for net in input['params']['globalnetworks']:
+        nets['GLOBAL'][net['name']] = gennet(net['name'], "GLOBAL", net['cidr'], net['routed'])
 
     resources['router'] = {
         'type': 'OS::Neutron::Router',
@@ -229,6 +220,7 @@ def genyaml(input):
     }
 
     # NO Network Element stuff. This will always be here.
+    nofunction = input['params']['noampfunction']
 
     appworks['networkelements'].append({'name': 'NO_NE'})
     appworks['servergroups'].append({'name': 'NO_SG',
@@ -237,35 +229,35 @@ def genyaml(input):
                                      'functionName': nofunction,
                                      'numWanRepConn': 1})
 
-    wan = gennet("WAN", "NO_NE", str(subnets.pop()))
-    lan = gennet("LAN", "NO_NE", "172.30.0.0/24", False)
-    xsi = gennet("XSI", "GLOBAL", "192.168.99.0/24", False)
-
-    nets += [wan,lan,xsi]
+    servernets = []
+    for net in input['params']['interfaces']:
+        n = nets['NO_NE'].get(net,nets['GLOBAL'].get(net, None))
+        servernets.append(n)
 
     noampflavor = input['params']['noampflavor']
     noampprofile = input['params']['noampprofile']
 
-    noa = genserver("noa", "NO_NE", "NO_SG", [wan,lan,xsi], "roleNOAMP", noampflavor, noampprofile, primary = True)
+    noa = genserver("noa", "NO_NE", "NO_SG", servernets, "roleNOAMP", noampflavor, noampprofile, primary = True)
     noa['instance']['metadata']['appworks'] = appworks
 
-    nob = genserver("nob", "NO_NE", "NO_SG", [wan,lan,xsi], "roleNOAMP", noampflavor, noampprofile, haRolePref = "SPARE")
+    nob = genserver("nob", "NO_NE", "NO_SG", servernets, "roleNOAMP", noampflavor, noampprofile, haRolePref = "SPARE")
     servers += [noa, nob]
+    yamlnets += servernets
 
-    # Add any extra servers
-    for server in input['extras']:
-        s = genserver(server['name'],"NONE","NONE",[wan,xsi],"NONE",server['flavor'], None, extra = True, user_data = server['user-data'], image = server['image'])
-        servers += [s]
     nenum = 1
-
     for ne in input['params']['networkelements']:
         mpnum = 1
         nename = "SO_NE{0}".format(nenum)
+        nets[nename] = {}
         appworks['networkelements'].append({'name': nename})
 
-        wan = gennet("WAN", nename, str(subnets.pop()))
-        lan = gennet("LAN", nename, "172.30.0.0/24", False)
-        nets += [wan,lan]
+        for net in ne['networks']:
+            nets[nename][net['name']] = gennet(net['name'], nename, net['cidr'], net['routed'])
+
+        servernets = []
+        for net in ne['interfaces']:
+            n = nets[nename].get(net,nets['GLOBAL'].get(net, None))
+            servernets.append(n)
 
         sosgname = "SO_SG{0}".format(nenum)
         appworks['servergroups'].append({'name': sosgname,
@@ -273,14 +265,13 @@ def genyaml(input):
                                          'parentSgName':'NO_SG',
                                          'functionName': ne['soamfunction'],
                                          'numWanRepConn': 1})
-
-        soa = genserver("soa{0}".format(nenum), nename, sosgname, [wan,lan], "roleSOAM", ne['soamflavor'], ne['soamprofile'], primary = True)
-        sob = genserver("sob{0}".format(nenum), nename, sosgname, [wan,lan], "roleSOAM", ne['soamflavor'], ne['soamprofile'], haRolePref = "SPARE")
+        soa = genserver("soa{0}".format(nenum), nename, sosgname, servernets, "roleSOAM", ne['soamflavor'], ne['soamprofile'], primary = True)
+        sob = genserver("sob{0}".format(nenum), nename, sosgname, servernets, "roleSOAM", ne['soamflavor'], ne['soamprofile'], haRolePref = "SPARE")
         servers += [soa, sob]
+        yamlnets += servernets
 
         sgnum = 1
         for sg in ne['mpservergroups']:
-        # for rawsgnum in range(0, sgs):
             mpsgname = "SO{0}MP_SG{1}".format(nenum, sgnum)
             appworks['servergroups'].append({'name': mpsgname,
                                              'level':'C',
@@ -289,14 +280,29 @@ def genyaml(input):
                                              'numWanRepConn': 1})
 
             for rawmpnum in range(0, sg['mpcount']):
-                mp = genserver("so{0}mp{1}".format(nenum, mpnum), nename, mpsgname, [wan,lan,xsi], "roleMP", sg['mpflavor'], sg['mpprofile'])
+                servernets = []
+                for net in sg['interfaces']:
+                    n = nets[nename].get(net,nets['GLOBAL'].get(net, None))
+                    servernets.append(n)
+
+                mp = genserver("so{0}mp{1}".format(nenum, mpnum), nename, mpsgname, servernets, "roleMP", sg['mpflavor'], sg['mpprofile'])
                 servers += [mp]
                 mpnum += 1
             sgnum += 1
         nenum += 1
 
+    # Add any extra servers
+    for server in input['extras']:
+        servernets = []
+        for net in server['interfaces']:
+            n = nets[net['nename']][net['network']]
+            servernets.append(n)
+
+        s = genserver(server['name'],"NONE","NONE",servernets,"NONE",server['flavor'], None, extra = True, user_data = server['user-data'], image = server['image'])
+        servers += [s]
+
 # put it all together!
-    for net in nets:
+    for net in yamlnets:
         name = net['name']
         resources[name] = net['net']
         resources[name+"_subnet"] = net['subnet']
@@ -341,3 +347,6 @@ def generate():
     inputdata = yaml.load(open(args.input).read())
 
     print genyaml(inputdata)
+
+if __name__ == "__main__":
+    generate()

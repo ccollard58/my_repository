@@ -17,10 +17,49 @@ properties:
                 type: string
                 description: AppWorks hardware profile for the NOAM&P pair
                 example: TVOE Guest
-            supernet:
-                type: string
-                description: Network to subnet to provide routed networks
-                example: 192.168.23.0/24
+            networks:
+                type: array
+                description: Networks in the NOAM&P Network Element
+                items:
+                    type: object
+                    properties:
+                        name:
+                            type: string
+                            description: Name of the network
+                            example: XMI
+                        cidr:
+                            type: string
+                            description: Address of the network in CIDR format
+                            example: 192.168.0.0/24
+                        routed:
+                            type: boolean
+                            description: Whether or not the network is a routed network
+                            example: true
+            globalnetworks:
+                type: array
+                description: Networks that are not part of any Network Element
+                items:
+                    type: object
+                    properties:
+                        name:
+                            type: string
+                            description: Name of the networks
+                            example: XSI
+                        cidr:
+                            type: string
+                            description: Address of the network in CIDR format
+                            example: 192.168.100.0/24
+                        routed:
+                            type: boolean
+                            description: Whether or not the network is a routed network
+                            example: true
+            interfaces:
+                type: array
+                description: The networks servers in this network element should be connected to
+                items:
+                    type: string
+                    description: Network name
+                    example: XMI
             networkelements:
                 type: array
                 description: SOAM Network Elements
@@ -39,6 +78,31 @@ properties:
                             type: string
                             description: AppWorks hardware profile for this SOAM pair
                             example: TVOE Guest
+                        networks:
+                            type: array
+                            description: Networks in the SOAM Network Element
+                            items:
+                                type: object
+                                properties:
+                                    name:
+                                        type: string
+                                        description: Name of the network
+                                        example: XMI
+                                    cidr:
+                                        type: string
+                                        description: Address of the network in CIDR format
+                                        example: 192.168.0.0/24
+                                    routed:
+                                        type: boolean
+                                        description: Whether or not the network is a routed network
+                                        example: true
+                        interfaces:
+                            type: array
+                            description: The networks SO servers in this network element should be connected to
+                            items:
+                                type: string
+                                description: Network name
+                                example: XMI
                         mpservergroups:
                             type: array
                             description: MP Server Groups in this Network Element
@@ -61,6 +125,13 @@ properties:
                                         type: integer
                                         description: The number of MPs in this Server Group
                                         example: 2
+                                    interfaces:
+                                        type: array
+                                        description: The networks MP servers in this Server Group should be connected to
+                                        items:
+                                            type: string
+                                            description: Network name
+                                            example: XMI
     extras:
         type: array
         description: Extra servers to include in the template. They will be connected to the NOAM&P Network Element WAN network, as well as the XSI network.
@@ -79,6 +150,21 @@ properties:
                     type: string
                     description: Nova flavor to use for this VM
                     example: m1.large
+                interfaces:
+                    type: array
+                    description: Networks this extra server should be connected to
+                    items:
+                        type: object
+                        properties:
+                            nename:
+                                type: string
+                                description: Name of the Network Element containing the networks ("GLOBAL" for networks not in Network Elements)
+                                example: NO_NE
+                            network:
+                                type: string
+                                description: Name of the network
+                                example: XMI
+
                 user-data:
                     type: string
                     description: User data to pass to cloud-init for this VM
