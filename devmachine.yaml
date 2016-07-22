@@ -8,6 +8,9 @@ parameters:
         default: db3b2356-17c7-491e-9b7b-01fc1e946f8d
         label: Public Network ID
         type: string
+    image:
+        label: Image
+        type: string
     sshkeypair:
         label: SSH keypair name
         type: string
@@ -17,7 +20,8 @@ resources:
         properties:
             flavor:
                 get_param: flavor
-            image: Oracle Linux 7.2
+            image:
+                get_param: image
             key_name:
                 get_param: sshkeypair
             name:

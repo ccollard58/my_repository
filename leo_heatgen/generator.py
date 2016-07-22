@@ -206,9 +206,11 @@ def genyaml(input):
 
     for net in input['params']['networks']:
         nets['NO_NE'][net['name']] = gennet(net['name'], "NO_NE", net['cidr'], net['routed'])
+        yamlnets.append(nets['NO_NE'][net['name']])
 
     for net in input['params']['globalnetworks']:
         nets['GLOBAL'][net['name']] = gennet(net['name'], "GLOBAL", net['cidr'], net['routed'])
+        yamlnets.append(nets['GLOBAL'][net['name']])
 
     resources['router'] = {
         'type': 'OS::Neutron::Router',
@@ -242,7 +244,6 @@ def genyaml(input):
 
     nob = genserver("nob", "NO_NE", "NO_SG", servernets, "roleNOAMP", noampflavor, noampprofile, haRolePref = "SPARE")
     servers += [noa, nob]
-    yamlnets += servernets
 
     nenum = 1
     for ne in input['params']['networkelements']:
@@ -253,6 +254,7 @@ def genyaml(input):
 
         for net in ne['networks']:
             nets[nename][net['name']] = gennet(net['name'], nename, net['cidr'], net['routed'])
+            yamlnets.append(nets[nename][net['name']])
 
         servernets = []
         for net in ne['interfaces']:
@@ -268,7 +270,6 @@ def genyaml(input):
         soa = genserver("soa{0}".format(nenum), nename, sosgname, servernets, "roleSOAM", ne['soamflavor'], ne['soamprofile'], primary = True)
         sob = genserver("sob{0}".format(nenum), nename, sosgname, servernets, "roleSOAM", ne['soamflavor'], ne['soamprofile'], haRolePref = "SPARE")
         servers += [soa, sob]
-        yamlnets += servernets
 
         sgnum = 1
         for sg in ne['mpservergroups']:

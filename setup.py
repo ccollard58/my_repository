@@ -4,12 +4,12 @@ setup(
     name="leo-stacktools",
     version = "0.1",
     packages = ['leo_stacktools', 'leo_heatgen'],
-    package_data = {'leo_stacktools': ['appinit.php.tmpl', 'bootstrap.py.tmpl', 'soapwait.php'],
+    package_data = {'leo_stacktools': ['bootstrap.py.tmpl', 'soapwait.php'],
                     'leo_heatgen':    ['cloudconfig.yaml.tmpl'],
                    },
     install_requires = ["ipaddress", "requests", "pyyaml", "python-keystoneclient",
                         "python-heatclient", "python-neutronclient", "python-novaclient",
-                        "paramiko"],
+                        "python-openstackclient", "paramiko"],
     entry_points = {
         'console_scripts': [
             'stackcreate=leo_stacktools.stackcreate:create',

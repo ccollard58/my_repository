@@ -134,7 +134,7 @@ properties:
                                             example: XMI
     extras:
         type: array
-        description: Extra servers to include in the template. They will be connected to the NOAM&P Network Element WAN network, as well as the XSI network.
+        description: Extra servers to include in the template.
         items:
             type: object
             properties:

@@ -15,7 +15,7 @@ positional arguments:
   input       Input YAML specification
 ```
 
-# OCUDR automation scripts
+# Application automation scripts
 ## stackcreate
 Using the Heat API, creates a stack from a generated HOT template.
 
@@ -43,3 +43,6 @@ positional arguments:
   stackname   Name of the stack to configure.
   keyfile     Path to SSH key to use for authentication.
 ```
+
+# More Info
+See the Confluence page: https://cgbuconfluence.us.oracle.com/display/LAB/Stack+Tools

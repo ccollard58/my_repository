@@ -164,7 +164,7 @@ def configure():
 
         ntp = ET.SubElement(out, 'ntpServers')
         ntp = ET.SubElement(ntp, 'ntpServer')
-        ET.SubElement(ntp, 'ipAddress').text = '10.75.137.245'
+        ET.SubElement(ntp, 'ipAddress').text = '192.168.56.180'
         ET.SubElement(ntp, 'prefer').text = 'yes'
 
         for netname in server['addresses']:
@@ -258,11 +258,6 @@ def configure():
     with open("/tmp/{0}.py".format(args.stackname), 'w') as f:
         f.write(script)
 
-    with open('{0}/appinit.php.tmpl'.format(scriptdir), 'r') as f:
-        script = f.read().replace("$$HOSTS$$", nodestr)
-    with open("/tmp/{0}_appinit.php".format(args.stackname), 'w') as f:
-        f.write(script)
-
     sys.stdout.write("Waiting for NOA MMI to become ready...")
     sys.stdout.flush()
 
@@ -306,6 +301,9 @@ def configure():
 
     except Exception as ex:
         print ex
+
+    sshtools.putFile(noafloatingip, args.keyfile, "/home/admusr/.ssh/sshkey.pem", "admusr", args.keyfile)
+    sshtools.runCommand(noafloatingip, "chmod 600 /home/admusr/.ssh/sshkey.pem", "admusr", args.keyfile, printoutput = True)
 
     sshtools.putFile(noafloatingip, "/tmp/{0}.py".format(args.stackname), "/tmp/bootstrap.py", "admusr", args.keyfile)
     sshtools.runCommand(noafloatingip, "/usr/bin/python /tmp/bootstrap.py", "admusr", args.keyfile, printoutput = True)
@@ -368,14 +366,7 @@ def configure():
         else:
             print "Server {0} never came up... Not going to enable the application.".format(server)
 
-    # TODO: generate and run this for more than one SO Network Element.
-    print "Performing UDR configuration..."
-    sshtools.putFile(soafloatingip, "/tmp/{0}_appinit.php".format(args.stackname), "/tmp/appinit.php", "admusr", args.keyfile)
-    sshtools.runCommand(soafloatingip, "/usr/bin/php /tmp/appinit.php", "admusr", args.keyfile, printoutput = True)
-
-    os.unlink("/tmp/{0}_appinit.php".format(args.stackname))
-
-    sshtools.runCommand(noafloatingip, "source /etc/profile; sudo prod.stop -i; sudo prod.start -i", "admusr", args.keyfile, printoutput = True)
+    #TODO: Application configuration hooks should be loaded and run here!
 
     print "Complete!"
     print "NOA is accessible at https://{0}/".format(noafloatingip)
