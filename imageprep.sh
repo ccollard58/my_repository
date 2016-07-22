@@ -20,39 +20,18 @@ if ! [ -f $1 ]
     exit 1
 fi
 
-sudo tar -xvf $1 > /dev/null 2>&1
+tar -xvf $1 > /dev/null 2>&1
 vmdkname="$(ls | grep -Po '.+(?=\.vmdk)').vmdk"
 
-sudo qemu-img convert -f vmdk -O qcow2 $vmdkname $2
-sudo modprobe -r nbd
-sudo modprobe nbd max_part=8
+qemu-img convert -f vmdk -O qcow2 $vmdkname $2
 
-for nbd_device in /sys/class/block/nbd*; do
-    size=`cat $nbd_device/size`
-    if [ "$size" -eq 0 ] ; then
-        device_number=$(basename $nbd_device | grep -Po "[0-9]+$")
-        sudo qemu-nbd --connect=/dev/nbd$device_number $2
-        sudo partx -a /dev/nbd$device_number
-        break
-    fi
-done
-
-TEMP=$(mktemp -d)
-
-sudo pvscan --cache
-sudo vgscan
-sudo vgchange -ay vgroot
-sudo mount /dev/vgroot/plat_root $TEMP
-
-
-sudo chroot $TEMP /bin/bash -c "/sbin/chkconfig cloud-init-local on; /sbin/chkconfig cloud-init on; /sbin/chkconfig cloud-config on; /sbin/chkconfig cloud-final on"
-
-sudo umount $TEMP
-sudo rm -r $TEMP
-
-sudo vgchange -an vgroot
-sudo qemu-nbd -d /dev/nbd$device_number
-sudo pvscan --cache
+# sudo chroot $TEMP /bin/bash -c "/sbin/chkconfig cloud-init-local on; /sbin/chkconfig cloud-init on; /sbin/chkconfig cloud-config on; /sbin/chkconfig cloud-final on"
+guestfish -a $2 -i <<EOF
+sh "chkconfig cloud-init on"
+sh "chkconfig cloud-init-local on"
+sh "chkconfig cloud-config on"
+sh "chkconfig cloud-final on"
+EOF
 
 openstack image create --disk-format qcow2 --file $2 $2
 
