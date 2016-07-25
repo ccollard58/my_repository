@@ -132,6 +132,12 @@ def configure():
                     ET.SubElement(elem, 'functionName').text = sg['functionName']
                     ET.SubElement(elem, 'numWanRepConn').text = str(sg['numWanRepConn'])
 
+                for s in meta['appworks']['services']:
+                    svc = ET.SubElement(configtree, 'servicePath')
+                    ET.SubElement(svc, 'name').text = s['name']
+                    ET.SubElement(svc, 'intraSitePath').text = s['intraSitePath']
+                    ET.SubElement(svc, 'interSitePath').text = s['interSitePath']
+
         elif r.resource_type == "OS::Neutron::Net":
             meta = heat.resources.metadata(args.stackname, r.resource_name)
             net = neutron.show_network(r.physical_resource_id)['network']
@@ -227,12 +233,6 @@ def configure():
             ET.SubElement(out, 'locked').text = 'true'
         else:
             ET.SubElement(out, 'locked').text = 'false'
-
-    for s in ['Replication', 'OAM', 'Signaling']:
-        svc = ET.SubElement(configtree, 'servicePath')
-        ET.SubElement(svc, 'name').text = s
-        ET.SubElement(svc, 'intraSitePath').text = 'LAN'
-        ET.SubElement(svc, 'interSitePath').text = 'WAN'
 
     xmlstring = ET.tostring(configtree)
 

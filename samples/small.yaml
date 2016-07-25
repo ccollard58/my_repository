@@ -17,6 +17,19 @@ params:
         - XMI
         - IMI
         - XSI1
+    services:
+        - name: OAM
+          interSitePath: XMI
+          intraSitePath: IMI
+        - name: Replication
+          interSitePath: XMI
+          intraSitePath: IMI
+        - name: Signaling
+          interSitePath: XMI
+          intraSitePath: IMI
+        - name: ComAgent
+          interSitePath: XSI1
+          intraSitePath: IMI
     networkelements:
         - soamfunction: NONE
           soamflavor: m1.udr

@@ -60,6 +60,24 @@ properties:
                     type: string
                     description: Network name
                     example: XMI
+            services:
+                type: array
+                description: Maps services to networks
+                items:
+                    type: object
+                    properties:
+                        name:
+                            type: string
+                            description: Name of the service to map
+                            example: Replication
+                        interSitePath:
+                            type: string
+                            description: Network to use for this service when communicating between different Network Elements
+                            example: XMI
+                        intraSitePath:
+                            type: string
+                            description: Network to use for this service when communicating within the same Network Element
+                            example: IMI
             networkelements:
                 type: array
                 description: SOAM Network Elements

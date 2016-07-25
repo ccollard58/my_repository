@@ -16,6 +16,16 @@ params:
     interfaces:
         - FOO
         - BAR
+    services:
+        - name: OAM
+          interSitePath: FOO
+          intraSitePath: BAR
+        - name: Replication
+          interSitePath: FOO
+          intraSitePath: BAR
+        - name: Signaling
+          interSitePath: FOO
+          intraSitePath: BAZ
     networkelements:
         - soamfunction: ALEXA
           soamflavor: alexa.vm

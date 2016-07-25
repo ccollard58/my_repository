@@ -231,6 +231,8 @@ def genyaml(input):
                                      'functionName': nofunction,
                                      'numWanRepConn': 1})
 
+    appworks['services'] = input['params']['services']
+
     servernets = []
     for net in input['params']['interfaces']:
         n = nets['NO_NE'].get(net,nets['GLOBAL'].get(net, None))
