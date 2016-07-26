@@ -32,25 +32,25 @@ def configure():
     parser.add_argument("-g", "--generate_only", help="Generate XML only", action="store_true")
     args = parser.parse_args()
 
-    osauthurl    = env.get('OS_AUTH_URL', '')
-    osusername   = env.get('OS_USERNAME', '')
-    ospassword   = env.get('OS_PASSWORD', '')
-    ostenantname = env.get('OS_TENANT_NAME', '')
-    osregionname = env.get('OS_REGION_NAME', '')
+    osauthurl    = env.get('OS_AUTH_URL', False)
+    osusername   = env.get('OS_USERNAME', False)
+    ospassword   = env.get('OS_PASSWORD', False)
+    ostenantname = env.get('OS_TENANT_NAME', False)
+    osregionname = env.get('OS_REGION_NAME', False)
 
-    if osauthurl == '':
+    if not osauthurl:
         print "OS_AUTH_URL must be set! Did you source an openrc file?"
         sys.exit(-1)
-    if osusername == '':
+    if not osusername:
         print "OS_USERNAME must be set! Did you source an openrc file?"
         sys.exit(-1)
-    if ospassword == '':
+    if not ospassword:
         print "OS_PASSWORD must be set! Did you source an openrc file?"
         sys.exit(-1)
-    if ostenantname == '':
+    if not ostenantname:
         print "OS_TENANT_NAME must be set! Did you source an openrc file?"
         sys.exit(-1)
-    if osregionname == '':
+    if not osregionname:
         print "OS_REGION_NAME must be set! Did you source an openrc file?"
         sys.exit(-1)
 
