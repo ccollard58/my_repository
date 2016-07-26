@@ -1,19 +1,68 @@
 params:
     noampfunction: UDR-NO
     noampflavor: m1.udr
-    supernet: 192.168.23.0/24
+    noampprofile: UDR VMware
+    networks:
+        - name: XMI
+          cidr: 192.168.23.0/24
+          routed: true
+        - name: IMI
+          cidr: 172.23.0.0/24
+          routed: false
+    globalnetworks:
+        - name: XSI1
+          cidr: 192.168.100.0/24
+          routed: false
+    interfaces:
+        - XMI
+        - IMI
+        - XSI1
+    services:
+        - name: OAM
+          interSitePath: XMI
+          intraSitePath: IMI
+        - name: Replication
+          interSitePath: XMI
+          intraSitePath: IMI
+        - name: Signaling
+          interSitePath: XMI
+          intraSitePath: IMI
+        - name: ComAgent
+          interSitePath: XSI1
+          intraSitePath: IMI
     networkelements:
         - soamfunction: NONE
           soamflavor: m1.udr
+          soamprofile: UDR VMware
+          networks:
+              - name: XMI
+                cidr: 192.168.24.0/24
+                routed: true
+              - name: IMI
+                cidr: 172.23.0.0/24
+                routed: false
+          interfaces:
+              - XMI
+              - IMI
           mpservergroups:
             - function: UDR-MP (multi-active cluster)
               mpflavor: m1.udr
+              mpprofile: UDR VMware
               mpcount: 2
+              interfaces:
+                  - XMI
+                  - IMI
+                  - XSI1
 
 extras:
     - name: seagull
       image: MEATOS6.106.0
       flavor: m1.large
+      interfaces:
+          - nename: NO_NE
+            network: XMI
+          - nename: GLOBAL
+            network: XSI1
       user-data: |
           #cloud-config
 

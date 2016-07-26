@@ -31,16 +31,38 @@ def create():
         print "Template '{0}' does not exist!".format(args.yaml)
         sys.exit(-1)
 
-    keystone = ksclient.Client(auth_url=env['OS_AUTH_URL'],
-                               username=env['OS_USERNAME'],
-                               password=env['OS_PASSWORD'],
-                               tenant_name=env['OS_TENANT_NAME'],
-                               region_name=env['OS_REGION_NAME'])
+    osauthurl    = env.get('OS_AUTH_URL', False)
+    osusername   = env.get('OS_USERNAME', False)
+    ospassword   = env.get('OS_PASSWORD', False)
+    ostenantname = env.get('OS_TENANT_NAME', False)
+    osregionname = env.get('OS_REGION_NAME', False)
 
-    auth = v2.Password(auth_url=env['OS_AUTH_URL'],
-                       username=env['OS_USERNAME'],
-                       password=env['OS_PASSWORD'],
-                       tenant_name=env['OS_TENANT_NAME'])
+    if not osauthurl:
+        print "OS_AUTH_URL must be set! Did you source an openrc file?"
+        sys.exit(-1)
+    if not osusername:
+        print "OS_USERNAME must be set! Did you source an openrc file?"
+        sys.exit(-1)
+    if not ospassword:
+        print "OS_PASSWORD must be set! Did you source an openrc file?"
+        sys.exit(-1)
+    if not ostenantname:
+        print "OS_TENANT_NAME must be set! Did you source an openrc file?"
+        sys.exit(-1)
+    if not osregionname:
+        print "OS_REGION_NAME must be set! Did you source an openrc file?"
+        sys.exit(-1)
+
+    keystone = ksclient.Client(auth_url=osauthurl,
+                               username=osusername,
+                               password=ospassword,
+                               tenant_name=ostenantname,
+                               region_name=osregionname)
+
+    auth = v2.Password(auth_url=osauthurl,
+                       username=osusername,
+                       password=ospassword,
+                       tenant_name=ostenantname)
 
     sess  = session.Session(auth=auth)
     token = keystone.auth_token

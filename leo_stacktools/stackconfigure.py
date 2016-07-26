@@ -32,16 +32,38 @@ def configure():
     parser.add_argument("-g", "--generate_only", help="Generate XML only", action="store_true")
     args = parser.parse_args()
 
-    keystone = ksclient.Client(auth_url=env['OS_AUTH_URL'],
-                               username=env['OS_USERNAME'],
-                               password=env['OS_PASSWORD'],
-                               tenant_name=env['OS_TENANT_NAME'],
-                               region_name=env['OS_REGION_NAME'])
+    osauthurl    = env.get('OS_AUTH_URL', False)
+    osusername   = env.get('OS_USERNAME', False)
+    ospassword   = env.get('OS_PASSWORD', False)
+    ostenantname = env.get('OS_TENANT_NAME', False)
+    osregionname = env.get('OS_REGION_NAME', False)
 
-    auth = v2.Password(auth_url=env['OS_AUTH_URL'],
-                       username=env['OS_USERNAME'],
-                       password=env['OS_PASSWORD'],
-                       tenant_name=env['OS_TENANT_NAME'])
+    if not osauthurl:
+        print "OS_AUTH_URL must be set! Did you source an openrc file?"
+        sys.exit(-1)
+    if not osusername:
+        print "OS_USERNAME must be set! Did you source an openrc file?"
+        sys.exit(-1)
+    if not ospassword:
+        print "OS_PASSWORD must be set! Did you source an openrc file?"
+        sys.exit(-1)
+    if not ostenantname:
+        print "OS_TENANT_NAME must be set! Did you source an openrc file?"
+        sys.exit(-1)
+    if not osregionname:
+        print "OS_REGION_NAME must be set! Did you source an openrc file?"
+        sys.exit(-1)
+
+    keystone = ksclient.Client(auth_url=osauthurl,
+                               username=osusername,
+                               password=ospassword,
+                               tenant_name=ostenantname,
+                               region_name=osregionname)
+
+    auth = v2.Password(auth_url=osauthurl,
+                       username=osusername,
+                       password=ospassword,
+                       tenant_name=ostenantname)
 
     sess  = session.Session(auth=auth)
     token = keystone.auth_token
@@ -60,7 +82,11 @@ def configure():
 
     while stack.to_dict()['stack_status'] == 'CREATE_IN_PROGRESS':
         stack = heat.stacks.get(args.stackname)
-        print "Stack is in state '{0}'".format(stack.to_dict()['stack_status'])
+        status = stack.to_dict()['stack_status']
+        print "Stack is in state '{0}'".format(status)
+        if status == 'CREATE_FAILED':
+            print 'Stack creation failed!'
+            sys.exit(-1)
         time.sleep(3)
 
     # stack = heat.stacks.get(stackname)
@@ -106,6 +132,12 @@ def configure():
                     ET.SubElement(elem, 'functionName').text = sg['functionName']
                     ET.SubElement(elem, 'numWanRepConn').text = str(sg['numWanRepConn'])
 
+                for s in meta['appworks']['services']:
+                    svc = ET.SubElement(configtree, 'servicePath')
+                    ET.SubElement(svc, 'name').text = s['name']
+                    ET.SubElement(svc, 'intraSitePath').text = s['intraSitePath']
+                    ET.SubElement(svc, 'interSitePath').text = s['interSitePath']
+
         elif r.resource_type == "OS::Neutron::Net":
             meta = heat.resources.metadata(args.stackname, r.resource_name)
             net = neutron.show_network(r.physical_resource_id)['network']
@@ -126,7 +158,7 @@ def configure():
         ET.SubElement(out, 'hostname').text = servername
         ET.SubElement(out, 'networkElementName').text = server['awmeta']['neName']
         ET.SubElement(out, 'serverGroupName').text = server['awmeta']['sgName']
-        ET.SubElement(out, 'profileName').text = 'UDR VMware'
+        ET.SubElement(out, 'profileName').text = server['awmeta']['hwprofile']
         if 'haRolePref' in server['awmeta']:
             ET.SubElement(out, 'haRolePref').text = server['awmeta']['haRolePref']
         ET.SubElement(out, 'location').text = 'OpenStack'
@@ -138,7 +170,7 @@ def configure():
 
         ntp = ET.SubElement(out, 'ntpServers')
         ntp = ET.SubElement(ntp, 'ntpServer')
-        ET.SubElement(ntp, 'ipAddress').text = '10.75.137.245'
+        ET.SubElement(ntp, 'ipAddress').text = '192.168.56.180'
         ET.SubElement(ntp, 'prefer').text = 'yes'
 
         for netname in server['addresses']:
@@ -202,12 +234,6 @@ def configure():
         else:
             ET.SubElement(out, 'locked').text = 'false'
 
-    for s in ['Replication', 'OAM', 'Signaling']:
-        svc = ET.SubElement(configtree, 'servicePath')
-        ET.SubElement(svc, 'name').text = s
-        ET.SubElement(svc, 'intraSitePath').text = 'LAN'
-        ET.SubElement(svc, 'interSitePath').text = 'WAN'
-
     xmlstring = ET.tostring(configtree)
 
     if args.generate_only:
@@ -230,11 +256,6 @@ def configure():
     with open('{0}/bootstrap.py.tmpl'.format(scriptdir), 'r') as f:
         script = f.read().replace("$$NOAIP$$", noaip).replace("$$HOSTS$$", hoststr)
     with open("/tmp/{0}.py".format(args.stackname), 'w') as f:
-        f.write(script)
-
-    with open('{0}/appinit.php.tmpl'.format(scriptdir), 'r') as f:
-        script = f.read().replace("$$HOSTS$$", nodestr)
-    with open("/tmp/{0}_appinit.php".format(args.stackname), 'w') as f:
         f.write(script)
 
     sys.stdout.write("Waiting for NOA MMI to become ready...")
@@ -280,6 +301,9 @@ def configure():
 
     except Exception as ex:
         print ex
+
+    sshtools.putFile(noafloatingip, args.keyfile, "/home/admusr/.ssh/sshkey.pem", "admusr", args.keyfile)
+    sshtools.runCommand(noafloatingip, "chmod 600 /home/admusr/.ssh/sshkey.pem", "admusr", args.keyfile, printoutput = True)
 
     sshtools.putFile(noafloatingip, "/tmp/{0}.py".format(args.stackname), "/tmp/bootstrap.py", "admusr", args.keyfile)
     sshtools.runCommand(noafloatingip, "/usr/bin/python /tmp/bootstrap.py", "admusr", args.keyfile, printoutput = True)
@@ -342,14 +366,7 @@ def configure():
         else:
             print "Server {0} never came up... Not going to enable the application.".format(server)
 
-    # TODO: generate and run this for more than one SO Network Element.
-    print "Performing UDR configuration..."
-    sshtools.putFile(soafloatingip, "/tmp/{0}_appinit.php".format(args.stackname), "/tmp/appinit.php", "admusr", args.keyfile)
-    sshtools.runCommand(soafloatingip, "/usr/bin/php /tmp/appinit.php", "admusr", args.keyfile, printoutput = True)
-
-    os.unlink("/tmp/{0}_appinit.php".format(args.stackname))
-
-    sshtools.runCommand(noafloatingip, "source /etc/profile; sudo prod.stop -i; sudo prod.start -i", "admusr", args.keyfile, printoutput = True)
+    #TODO: Application configuration hooks should be loaded and run here!
 
     print "Complete!"
     print "NOA is accessible at https://{0}/".format(noafloatingip)

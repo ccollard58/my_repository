@@ -13,4 +13,4 @@ OPENRC=$1
 SSHKEY=$2
 
 docker pull $IMAGE
-docker run --name stacktools --hostname stacktools --rm -it -v $(readlink -e $OPENRC):/root/openrc -v $(readlink -e $SSHKEY):/root/sshkey.pem $IMAGE bash -c "source /root/openrc && /bin/bash"
+docker run --hostname stacktools --rm -it -v $(readlink -e $OPENRC):/root/openrc -v $(readlink -e $SSHKEY):/root/sshkey.pem $IMAGE bash -c "source /root/openrc && /bin/bash"

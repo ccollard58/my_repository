@@ -1,0 +1,53 @@
+params:
+    noampfunction: ALEXA
+    noampflavor: alexa.vm
+    noampprofile: TVOE Guest
+    networks:
+        - name: FOO
+          cidr: 192.168.23.0/24
+          routed: true
+        - name: BAR
+          cidr: 172.23.0.0/24
+          routed: false
+    globalnetworks:
+        - name: BAZ
+          cidr: 192.168.100.0/24
+          routed: false
+    interfaces:
+        - FOO
+        - BAR
+    services:
+        - name: OAM
+          interSitePath: FOO
+          intraSitePath: BAR
+        - name: Replication
+          interSitePath: FOO
+          intraSitePath: BAR
+        - name: Signaling
+          interSitePath: FOO
+          intraSitePath: BAZ
+    networkelements:
+        - soamfunction: ALEXA
+          soamflavor: alexa.vm
+          soamprofile: TVOE Guest
+          networks:
+              - name: FOO
+                cidr: 192.168.24.0/24
+                routed: true
+              - name: BAR
+                cidr: 172.23.0.0/24
+                routed: false
+          interfaces:
+              - FOO
+              - BAR
+          mpservergroups:
+            - function: ALEXA
+              mpflavor: alexa.vm
+              mpprofile: TVOE Guest
+              mpcount: 2
+              interfaces:
+                  - FOO
+                  - BAR
+                  - BAZ
+
+extras: []

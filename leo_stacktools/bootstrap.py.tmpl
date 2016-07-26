@@ -54,7 +54,7 @@ def bootstrapServer(server):
     ip = servers[server]
     try:
         print "Waiting for mkdbhooks on {0}...".format(server)
-        subprocess.call(["/usr/bin/ssh", "-o StrictHostKeyChecking=no", ip,
+        subprocess.call(["/usr/bin/ssh", "-o StrictHostKeyChecking=no", "-i", "/home/admusr/.ssh/sshkey.pem", ip,
             "bash -c '. /etc/profile 2>&1 >/dev/null; while ! pm.getprocs 2>&1|grep mkdbhooks|grep Done; do sleep 1; done'"])
 
         print "Bootstrapping {0}...".format(server)
@@ -64,7 +64,6 @@ def bootstrapServer(server):
         data = {"host": noaip,
                 "options": {
                     "-hostname":"",
-                    "-ntp":"",
                 }}
 
         headers = {"X-Auth-Token": token}
