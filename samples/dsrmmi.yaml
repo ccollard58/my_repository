@@ -1,0 +1,92 @@
+# Sample file used by the DSR MMI to create a setup containing only NOAM and single site SOAMs
+params:
+    noampfunction: DSR-NO
+    noampflavor: dsr.oam
+    noampprofile: UDR VMware
+    networks:
+        - name: XMI
+          cidr: 192.168.23.0/24
+          routed: true
+        - name: IMI
+          cidr: 172.23.0.0/24
+          routed: false
+    globalnetworks:
+        - name: XSI1
+          cidr: 192.168.100.0/24
+          routed: false
+    interfaces:
+        - XMI
+        - IMI
+        - XSI1
+    services:
+        - name: OAM
+          interSitePath: XMI
+          intraSitePath: IMI
+        - name: Replication
+          interSitePath: XMI
+          intraSitePath: IMI
+        - name: Signaling
+          interSitePath: XMI
+          intraSitePath: IMI
+        - name: ComAgent
+          interSitePath: XSI1
+          intraSitePath: IMI
+    networkelements:
+        - soamfunction: NONE
+          soamflavor: dsr.oam
+          soamprofile: UDR VMware
+          networks:
+              - name: XMI
+                cidr: 192.168.24.0/24
+                routed: true
+              - name: IMI
+                cidr: 172.23.0.0/24
+                routed: false
+          interfaces:
+              - XMI
+              - IMI
+          # This is not really used, but heatgen needs it
+          mpservergroups:
+            - function: UDR-MP (multi-active cluster)
+              mpflavor: m1.udr
+              mpprofile: UDR VMware
+              # not creating any MPs, but heatgen needs this section.
+              mpcount: 0
+              interfaces:
+                  - XMI
+                  - IMI
+                  - XSI1
+
+# Seagull is not needed for DSR MMI, but heatgen does not work, so create it
+# and then delete it later.
+extras:
+    - name: seagull
+      image: MEATOS6.106.0
+      flavor: m1.large
+      interfaces:
+          - nename: NO_NE
+            network: XMI
+          - nename: GLOBAL
+            network: XSI1
+      user-data: |
+          #cloud-config
+
+          runcmd:
+              - ifup eth1
+
+          write_files:
+              - path: /etc/sysconfig/network-scripts/ifcfg-eth1
+                permissions: '0644'
+                owner: root:root
+                content: |
+                    DEVICE=eth1
+                    ONBOOT=yes
+                    TYPE=Ethernet
+                    BOOTPROTO=dhcp
+                    DEFROUTE=no
+                    PEERDNS=no
+
+          packages:
+              - seagull
+              - seafood
+              - flock
