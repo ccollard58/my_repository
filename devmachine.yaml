@@ -51,6 +51,7 @@ resources:
                     - sqlite-devel
                     - openssl-devel
                     - libffi-devel
+                    - qemu-img
 
                 write_files:
                     - path: /etc/profile.d/proxy.sh
