@@ -62,13 +62,13 @@ def getToken(server):
 def getBulkConfiguratorXml(topologyInfo):
     """ Return the bulk configuration XML for the given topology"""
     configtree = ET.Element('configuration')
-
+    topotree = ET.SubElement(configtree, 'topo')
     for ne in topologyInfo['networkelements']:
-        elem = ET.SubElement(configtree, 'networkElement')
+        elem = ET.SubElement(topotree, 'networkElement')
         ET.SubElement(elem, 'name').text = ne['name']
 
     for sg in topologyInfo['servergroups']:
-        elem = ET.SubElement(configtree, 'serverGroup')
+        elem = ET.SubElement(topotree, 'serverGroup')
         ET.SubElement(elem, 'name').text = sg['name']
         ET.SubElement(elem, 'level').text = sg['level']
         ET.SubElement(elem, 'parentSgName').text = sg['parentSgName']
@@ -76,13 +76,13 @@ def getBulkConfiguratorXml(topologyInfo):
         ET.SubElement(elem, 'numWanRepConn').text = str(sg['numWanRepConn'])
 
     for s in topologyInfo['services']:
-        svc = ET.SubElement(configtree, 'servicePath')
+        svc = ET.SubElement(topotree, 'servicePath')
         ET.SubElement(svc, 'name').text = s['name']
         ET.SubElement(svc, 'intraSitePath').text = s['intraSitePath']
         ET.SubElement(svc, 'interSitePath').text = s['interSitePath']
 
     for server in topologyInfo['servers']:
-        out = ET.SubElement(configtree, 'server')
+        out = ET.SubElement(topotree, 'server')
         ET.SubElement(out, 'hostname').text           = server['hostname']
         ET.SubElement(out, 'networkElementName').text = server['networkElementName']
         ET.SubElement(out, 'serverGroupName').text    = server['serverGroupName']
@@ -96,10 +96,10 @@ def getBulkConfiguratorXml(topologyInfo):
         ntp = ET.SubElement(out, 'ntpServers')
         ntp = ET.SubElement(ntp, 'ntpServer')
         ET.SubElement(ntp, 'ipAddress').text = server['ntpServerIp']
-        ET.SubElement(ntp, 'prefer').text = 'yes'
+        ET.SubElement(ntp, 'prefer').text = 'true'
 
     for networkDevice in topologyInfo['networkDevices']:
-        devout = ET.SubElement(configtree, 'networkDevice')
+        devout = ET.SubElement(topotree, 'networkDevice')
         ET.SubElement(devout, 'port').text     = networkDevice['port']
         ET.SubElement(devout, 'type').text     = networkDevice['type']
         ET.SubElement(devout, 'hostname').text = networkDevice['hostname']
@@ -110,11 +110,11 @@ def getBulkConfiguratorXml(topologyInfo):
         ET.SubElement(intf, 'networkName').text = networkDevice['networkName']
 
         opts = ET.SubElement(devout, 'options')
-        ET.SubElement(opts, 'onboot').text = 'yes'
+        ET.SubElement(opts, 'onboot').text = 'true'
         ET.SubElement(opts, 'bootProto').text = 'none'
 
     for network in topologyInfo['networks']:
-        out = ET.SubElement(configtree, 'network')
+        out = ET.SubElement(topotree, 'network')
         ET.SubElement(out, 'name').text = network['name']
 
         if network['neName'] != "GLOBAL":
