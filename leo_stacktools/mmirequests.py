@@ -7,10 +7,20 @@ import requests.api
 import urlparse
 import json
 
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
 # Globals
 username             = 'guiadmin'
-password             = 'xxxxxxxx'
+password             = 'tekware'
 sslVerifyCertificate = True
+
+def checkAvailable(address, **kwargs):
+    """ Check to see if the MMI is available at the given address. 
+        Returns a standard response object. """
+
+    kwargs.setdefault('verify', sslVerifyCertificate)
+    return requests.api.request('get', "https://{0}/mmi/alexa/v1.0/topo/versions".format(address), **kwargs)
 
 def get(url, **kwargs):
     """ Returns the overridden requests module get function. The overridden
