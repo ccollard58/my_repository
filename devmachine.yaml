@@ -74,7 +74,7 @@ resources:
                           search us.oracle.com oraclecorp.com labs.nc.tekelec.com nc.tekelec.com ssz.tekelec.com tekelec.com
                     - path: /opt/init.sh
                       owner: root:root
-                      permissions: '0777'
+                      permissions: '0755'
                       content: |
                           #!/usr/bin/env bash
                           set -x
