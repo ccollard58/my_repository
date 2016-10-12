@@ -3,8 +3,8 @@
 import argparse
 import ipaddress
 import json
+import mmirequests
 import os
-import requests
 import sys
 import time
 import yaml
@@ -14,8 +14,8 @@ import sshtools
 from os import environ as env
 from xml.etree import ElementTree as ET
 
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+mmirequests.sslVerifyCertificate = False
+
 
 import keystoneclient.v2_0.client as ksclient
 import heatclient.client as heatclient
@@ -32,10 +32,8 @@ def configureTopology(noafloatingip, topologyInfo):
     print "Configuring NOA using the bulk configurator MMI..."
 
     # Actually send the configurator request
-    token = getToken(noafloatingip)
-    headers = {"X-Auth-Token": token}
     xmlstring = getBulkConfiguratorXml(topologyInfo)
-    resp = requests.post(url, verify=False, data=xmlstring, headers=headers)
+    resp = mmirequests.post(url, data=xmlstring)
 
     try:
         r = resp.json()
@@ -48,16 +46,6 @@ def configureTopology(noafloatingip, topologyInfo):
 
     except Exception as ex:
         print ex
-
-def getToken(server):
-    """ Return authentication token from the given server """
-    print "Fetching token from {0}...".format(server)
-
-    url = "https://{0}/mmi/alexa/v1.0/auth/tokens".format(server)
-    credentials = {"username":"guiadmin", "password":"tekware"}
-
-    r = requests.post(url, verify=False, data=credentials)
-    return r.json()['data']['token']
 
 def getBulkConfiguratorXml(topologyInfo):
     """ Return the bulk configuration XML for the given topology"""
@@ -147,6 +135,7 @@ def configure():
     parser.add_argument("-g", "--generate_only", help="Generate XML only", action="store_true")
     args = parser.parse_args()
 
+    print "checking OpenStack environment settings..."
     osauthurl    = env.get('OS_AUTH_URL', False)
     osusername   = env.get('OS_USERNAME', False)
     ospassword   = env.get('OS_PASSWORD', False)
@@ -169,6 +158,7 @@ def configure():
         print "OS_REGION_NAME must be set! Did you source an openrc file?"
         sys.exit(-1)
 
+    print "creating CLI client objects..."
     keystone = ksclient.Client(auth_url=osauthurl,
                                username=osusername,
                                password=ospassword,
@@ -193,6 +183,7 @@ def configure():
     servers      = {}
     nets         = {}
 
+    print "checking status of stack..."
     stack = heat.stacks.get(args.stackname)
 
     while stack.to_dict()['stack_status'] == 'CREATE_IN_PROGRESS':
@@ -218,7 +209,7 @@ def configure():
 
     hostmap = {}
 
-    # print "Fetching resources..."
+    print "Fetching application configuration data..."
     vlanId = 2
 
     topologyInfo = {}
@@ -341,6 +332,7 @@ def configure():
         print getBulkConfiguratorXml(topologyInfo)
         sys.exit(0)
 
+    print "creating bulk configuraton XML..."
     xmlstring = getBulkConfiguratorXml(topologyInfo)
     with open("/tmp/{0}.xml".format(args.stackname), 'w') as f:
         f.write(xmlstring)
@@ -363,13 +355,13 @@ def configure():
     sys.stdout.write("Waiting for NOA MMI to become ready...")
     sys.stdout.flush()
 
-    r = requests.get("https://{0}/".format(noafloatingip), verify = False)
+    r = mmirequests.checkAvailable(noafloatingip)
     while r.status_code != 200:
-        time.sleep(5)
+        time.sleep(10)
         sys.stdout.write('.')
         sys.stdout.flush()
 
-        r = requests.get("https://{0}/".format(noafloatingip), verify = False)
+        r = mmirequests.checkAvailable(noafloatingip)
     print "up!"
 
     sshtools.putFile(noafloatingip, "{0}/soapwait.php".format(scriptdir), "/tmp/soapwait.php", "admusr", args.keyfile)
@@ -377,9 +369,11 @@ def configure():
 
     configureTopology(noafloatingip, topologyInfo)
 
+    print "push ssh key to the NOA..."
     sshtools.putFile(noafloatingip, args.keyfile, "/home/admusr/.ssh/sshkey.pem", "admusr", args.keyfile)
     sshtools.runCommand(noafloatingip, "chmod 600 /home/admusr/.ssh/sshkey.pem", "admusr", args.keyfile, printoutput = True)
 
+    print "initiate bootstrap..."
     sshtools.putFile(noafloatingip, "/tmp/{0}.py".format(args.stackname), "/tmp/bootstrap.py", "admusr", args.keyfile)
     sshtools.runCommand(noafloatingip, "/usr/bin/python /tmp/bootstrap.py", "admusr", args.keyfile, printoutput = True)
 
@@ -387,13 +381,12 @@ def configure():
     os.unlink("/tmp/{0}.py".format(args.stackname))
 
     # Wait for everything to come up
+    print "wait for all servers to configure themselves and begin replication..."
+
     url = "https://{0}/mmi/alexa/v1.0/topo/servers/status".format(noafloatingip)
 
     # Actually send the configurator request
-    headers = {"X-Auth-Token": token}
-
     ret = {}
-
     for host in hostmap:
         ret[host] = False
 
@@ -401,7 +394,7 @@ def configure():
     while (elapsed < 600):
 
         try:
-            resp = requests.get(url, verify=False, headers=headers)
+            resp = mmirequests.get(url)
             r = resp.json()
             for server in r['data']:
                 hostname = server['hostname']
@@ -415,7 +408,8 @@ def configure():
             else:
                 elapsed += 1
         except Exception as ex:
-            print "{0}: {1}".format(url, ex)
+            #print "{0}: {1}".format(url, ex)
+            print "no response from MMI, sleeping..."
 
         time.sleep(1)
 
@@ -437,7 +431,7 @@ def configure():
         if ret[server]:
             print "Enabling application on {0}...".format(server)
             data = json.dumps({'applState': 'Enabled'})
-            resp = requests.put(url, verify=False, headers=headers, data=data)
+            resp = mmirequests.put(url, data=data)
         else:
             print "Server {0} never came up... Not going to enable the application.".format(server)
 
@@ -446,3 +440,7 @@ def configure():
     print "Complete!"
     print "NOA is accessible at https://{0}/".format(noafloatingip)
     print "SOA is accessible at https://{0}".format(soafloatingip)
+
+if __name__ == "__main__":
+    configure()
+
