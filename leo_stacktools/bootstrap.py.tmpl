@@ -6,6 +6,10 @@ import os
 
 from multiprocessing import Pool
 
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
 noaip = "$$NOAIP$$"
 
 servers = {
